@@ -1,6 +1,6 @@
 # Phase 2 plan — storefront (`apps/storefront`)
 
-Status: **Step A accepted and merged (PR #2). Step B in progress: B1 catalogue merged (PR #3); B2 reservations + drop accounting built — awaiting merge.** B3–B6 not started.
+Status: **Step A accepted and merged (PR #2). Step B in progress: B1 catalogue (PR #3) and B2 reservations + drop accounting (PR #4) merged; B3 bag built — awaiting merge.** B4–B6 not started.
 Rule: Step A ships alone. Step B starts only after Step A is accepted.
 
 ## 0. Pre-work (this PR)
@@ -50,6 +50,18 @@ Step A accepted 2026-10-19. Built in PR-sized slices, each with its own tests, t
 | **B4 Checkout (mock payment)** | Contact, address (UAE emirate picker + international), delivery option from `settings.shipping.rates`, server-recomputed totals → reservation → order `pending_payment` → **mock** payment session. | `create_order_from_cart()` (one transaction, prices from DB, never from the client). |
 | **B5 Account + early access** | Magic-link login (Supabase Auth), order history, addresses, consents; early-access window: only waitlisted emails can buy. | Auth redirect URLs on valzaya-dev. |
 | **B6 SEO + acceptance** | Metadata, Open Graph, sitemap, hreflang; Playwright browse → cart → mock checkout → `pending_payment`; RTL screenshots; Lighthouse home + product. | — |
+
+**B3 as built** (reference for B4/B5):
+- The guest bag is the httpOnly `vz_bag` cookie: a random 256-bit token. The database stores only its SHA-256 (`carts.guest_token_hash`).
+- All bag writes go through service-role functions:
+  - `cart_for_guest(hash, create)`
+  - `cart_add_item(cart, variant, qty)`, with lines capped at 10
+  - `cart_set_quantity(cart, variant, qty)`, where 0 removes the line
+  - `merge_carts(from, into)`, for sign-in in B5
+- Every edit releases the cart's checkout holds, and guest carts live 30 days from their last edit.
+- Bag writes are rate-limited to 60 per 10 minutes per IP.
+- The bag page (`/[locale]/bag`) and Add to bag work without JavaScript. Totals use `cartTotals()` in core: VAT is split per line, the same way an order stores it.
+- Signed-in carts and the merge on login are wired in B5, which brings login. The database side is built and tested now.
 
 **B2 as built** (reference for B3/B4):
 - `reserve_cart(cart_id, hold_minutes = 20)` is all-or-nothing and returns one row per line with a reason: `ok`, `not_on_sale`, `out_of_stock`, `variant_cap` or `drop_cap`. Calling it again refreshes the holds.
