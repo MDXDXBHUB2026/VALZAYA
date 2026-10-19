@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+}
+
+html {
+  background: #ffffff;
+  color: #111111;
+}

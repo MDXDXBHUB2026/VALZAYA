@@ -1,0 +1,12 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink: #1c1b19;
+  --color-linen: #f4efe6;
+  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+}
+
+html {
+  background: var(--color-linen);
+  color: var(--color-ink);
+}

@@ -1,0 +1,33 @@
+{
+  "name": "valzaya",
+  "private": true,
+  "packageManager": "pnpm@10.34.7",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "supabase": "supabase",
+    "db:push": "supabase db push --linked",
+    "db:reset": "supabase db reset --linked",
+    "db:test": "supabase test db --linked",
+    "db:types": "supabase gen types typescript --linked --schema public > packages/core/src/db/database.types.ts && prettier --write packages/core/src/db/database.types.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "globals": "^17.0.0",
+    "prettier": "^3.9.10",
+    "prettier-plugin-tailwindcss": "^0.7.0",
+    "supabase": "^2.121.0",
+    "turbo": "^2.11.9",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.2"
+  }
+}
