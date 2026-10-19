@@ -12,9 +12,16 @@ supabase/         migrations, seed.sql, pgTAP tests (supabase/tests/database)
 docs/erd.md       ERD (Mermaid) + RLS summary
 ```
 
-## Setup on Windows + VS Code
+## Working in Claude Code cloud sessions (primary)
 
-Prerequisites: Node 24+, Git for Windows, VS Code. No Docker needed — we use the cloud
+Start a session on this repo from claude.ai/code or the Claude app. The cloud environment's setup
+script installs pnpm dependencies and pgTAP; the Supabase connector reaches `valzaya-dev`. Work lands
+on a branch and a PR; merge it on GitHub. No local checkout is needed. Database workflow (migrations,
+RLS tests) is in [CLAUDE.md](CLAUDE.md).
+
+## Optional: local setup on Windows + VS Code
+
+Only needed if you want to run the apps on your own machine. Prerequisites: Node 24+, Git for Windows, VS Code. No Docker needed — we use the cloud
 `valzaya-dev` Supabase project.
 
 1. **pnpm via Corepack (no admin needed)** — keeps the shim and cache on D:

@@ -3,10 +3,24 @@
 ## Current mode: PROTOTYPE (change this section only when I say we are moving to production)
 - Mock payment and warehouse providers only. No real payment or 3PL credentials.
 - Development Supabase project only (`valzaya-dev`, cloud). Test data only — no real customer data.
-- No Docker on this machine: use the linked cloud Supabase dev project for migrations
-  (`supabase link` + `supabase db push`), never a local Docker stack.
+- Where work happens: Claude Code cloud sessions on the GitHub repo (MDXDXBHUB2026/VALZAYA) are the
+  primary workspace. GitHub is the source of truth; work lands via PRs that I merge. A local
+  Windows checkout is optional and not required.
+- No Docker anywhere: never a local Supabase stack, and `supabase test db` / `supabase db reset`
+  do not work.
+- Migrations (cloud sessions; port 5432 is blocked): apply with the Supabase connector
+  (`apply_migration`), then rename the migration file to the version the connector records
+  (check with `list_migrations`), so the repo and remote histories match.
+- RLS tests: assertions live in `supabase/tests/database/rls.test.sql` (source of truth). Rebuild the
+  SQL Editor copy with `npm run db:test:editor`, then paste `scripts/sql-editor/rls_check.sql` into
+  Dashboard → SQL Editor; it always ends with an error listing results and never commits.
+  Every new table or policy adds assertions there. Re-run the Security Advisor after schema changes.
+- Accepted Security Advisor warnings (reviewed 2026-10-19, do not re-open without new facts):
+  `is_staff` callable by anon/authenticated (needed by public-read policies; reveals only the
+  caller's own staff status) and `apply_order_transition` callable by authenticated (rejects
+  non-staff internally; covered by RLS test "customer cannot change order status").
 - Never deploy to production. Ask me before installing anything system-wide.
-- Machine: Windows. Project lives at D:\Valzaya. Keep caches/SDKs off C: (npm cache is D:\npm-cache).
+- Never put machine-specific paths or settings (drive letters, store/cache dirs) in the repo.
 
 ## Business
 Valzaya is a premium natural-fabric apparel brand (men + women: linen, long-staple cotton) based in the UAE,
