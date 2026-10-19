@@ -1,12 +1,63 @@
 @import 'tailwindcss';
 
+/*
+ * Valzaya tokens — quiet luxury: linen white, sand, ink, olive.
+ * Contrast (WCAG 2.1): every text colour below is >= 5.3:1 on linen and on the sand panel.
+ */
 @theme {
+  --color-linen: #f6f2ea;
+  --color-sand: #e9dfcf;
   --color-ink: #1c1b19;
-  --color-linen: #f4efe6;
-  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  --color-muted: #5c574f;
+  --color-olive: #55623a;
+  --color-error: #9b2c1f;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-cormorant), 'Times New Roman', serif;
+}
+
+/* Arabic: one typeface for display and body; Latin serif glyphs read poorly mixed into Arabic. */
+:root[dir='rtl'] {
+  --font-sans: var(--font-plex-arabic), var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-plex-arabic), var(--font-cormorant), serif;
 }
 
 html {
-  background: var(--color-linen);
-  color: var(--color-ink);
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-olive);
+  outline-offset: 3px;
+}
+
+@layer components {
+  .field {
+    @apply border-ink/25 bg-linen text-ink block w-full rounded-sm border px-3 py-3 text-base;
+    @apply placeholder:text-muted focus:border-olive;
+  }
+  .field[aria-invalid='true'] {
+    @apply border-error;
+  }
+  .btn-primary {
+    @apply bg-ink text-linen items-center justify-center rounded-sm px-6 py-3 text-sm font-medium tracking-wide;
+    @apply hover:bg-olive transition-colors disabled:cursor-wait disabled:opacity-70;
+  }
+  .btn-secondary {
+    @apply border-ink/30 inline-flex items-center justify-center rounded-sm border px-4 py-2 text-sm;
+    @apply hover:border-ink transition-colors;
+  }
+  /* Woven texture from two hairline gradients — no image request, no stock photography. */
+  .linen-texture {
+    background-color: var(--color-linen);
+    background-image:
+      repeating-linear-gradient(0deg, rgb(28 27 25 / 0.025) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgb(28 27 25 / 0.02) 0 1px, transparent 1px 4px);
+  }
 }
