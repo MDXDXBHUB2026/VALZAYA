@@ -1,6 +1,6 @@
 # Phase 2 plan — storefront (`apps/storefront`)
 
-Status: **PROPOSED — waiting for approval.** Nothing below is built yet.
+Status: **Step A built (approved 2026-10-19, defaults for decisions 3–6) — awaiting your acceptance.** Step B not started.
 Rule: Step A ships alone. Step B starts only after Step A is accepted.
 
 ## 0. Pre-work (this PR)
