@@ -1,6 +1,6 @@
 import 'server-only';
 import type { WaitlistJoinInput, WaitlistJoinResult, WaitlistStore } from '@valzaya/core';
-import type { TeaserDrop, WaitlistBackend } from './types';
+import type { WaitlistBackend } from './types';
 
 /**
  * In-memory backend for end-to-end tests and local previews without database credentials.
@@ -29,15 +29,6 @@ function state(): MemoryState {
 function newCode(): string {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase();
 }
-
-const DROP_01: TeaserDrop = {
-  id: '20000000-0000-4000-8000-000000000001',
-  number: 1,
-  titleEn: 'Drop 01',
-  titleAr: 'الإصدار 01',
-  earlyAccessAt: '2026-11-19T12:00:00Z',
-  opensAt: '2026-11-20T12:00:00Z',
-};
 
 export function createMemoryBackend(): WaitlistBackend {
   const store: WaitlistStore = {
@@ -80,5 +71,5 @@ export function createMemoryBackend(): WaitlistBackend {
     },
   };
 
-  return { store, getTeaserDrop: async () => DROP_01, hashSecret: 'memory-backend-not-secret' };
+  return { store, hashSecret: 'memory-backend-not-secret' };
 }
