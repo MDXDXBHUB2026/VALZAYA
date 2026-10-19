@@ -11,12 +11,20 @@ import {
 describe('splitInclusive', () => {
   it('splits a round 5% inclusive price exactly', () => {
     // 1050.00 AED gross -> 1000.00 net + 50.00 VAT
-    expect(splitInclusive(105_000)).toEqual({ netFils: 100_000, vatFils: 5_000, grossFils: 105_000 });
+    expect(splitInclusive(105_000)).toEqual({
+      netFils: 100_000,
+      vatFils: 5_000,
+      grossFils: 105_000,
+    });
   });
 
   it('rounds net half-up and keeps net + vat === gross', () => {
     // 1295.00 AED: 129500 / 1.05 = 123333.33 -> 123333
-    expect(splitInclusive(129_500)).toEqual({ netFils: 123_333, vatFils: 6_167, grossFils: 129_500 });
+    expect(splitInclusive(129_500)).toEqual({
+      netFils: 123_333,
+      vatFils: 6_167,
+      grossFils: 129_500,
+    });
     // 0.21 AED: 21 / 1.05 = 20 exactly
     expect(splitInclusive(21)).toEqual({ netFils: 20, vatFils: 1, grossFils: 21 });
     // 0.11 AED: 11 / 1.05 = 10.476 -> 10

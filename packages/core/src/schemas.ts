@@ -3,7 +3,9 @@ import { ORDER_STATUSES } from './order-state-machine';
 
 /** SKU pattern: VZ-<style>-<colour>-<size>, uppercase alphanumerics. Mirrors the DB CHECK. */
 export const SKU_REGEX = /^VZ-[A-Z0-9]{2,16}-[A-Z0-9]{2,16}-[A-Z0-9]{1,6}$/;
-export const skuSchema = z.string().regex(SKU_REGEX, 'SKU must look like VZ-<style>-<colour>-<size>');
+export const skuSchema = z
+  .string()
+  .regex(SKU_REGEX, 'SKU must look like VZ-<style>-<colour>-<size>');
 
 export function buildSku(style: string, colour: string, size: string): string {
   return skuSchema.parse(`VZ-${style}-${colour}-${size}`.toUpperCase());
