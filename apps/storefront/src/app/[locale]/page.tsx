@@ -1,85 +1,55 @@
-import { normalizeReferralCode } from '@valzaya/core';
 import { notFound } from 'next/navigation';
-import { Countdown } from '@/components/countdown';
+import Link from 'next/link';
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
-import { WaitlistForm } from '@/components/waitlist-form';
-import { isLocale } from '@/i18n/config';
+import { ProductGrid, localName, storeNav } from '@/components/store-parts';
+import { WaitlistLanding } from '@/components/waitlist-landing';
+import { fill, isLocale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/get-dictionary';
-import { getWaitlistBackend } from '@/lib/waitlist/backend';
+import { getCatalogue, isStoreOpen } from '@/lib/catalogue';
 
-export default async function WaitlistPage({ params, searchParams }: PageProps<'/[locale]'>) {
+export default async function HomePage({ params, searchParams }: PageProps<'/[locale]'>) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const t = getDictionary(locale);
   const { ref } = await searchParams;
-  const refCode = normalizeReferralCode(typeof ref === 'string' ? ref : null);
 
-  const drop = await getWaitlistBackend()
-    .getTeaserDrop()
-    .catch(() => null); // The waitlist must still work if the teaser query fails.
-  const target = drop?.earlyAccessAt ?? drop?.opensAt ?? null;
-  const dropTitle = drop
-    ? locale === 'ar'
-      ? (drop.titleAr ?? drop.titleEn)
-      : drop.titleEn
-    : t.hero.eyebrow;
-  const dateLabel = target
-    ? new Intl.DateTimeFormat(`${locale}-AE`, {
-        dateStyle: 'long',
-        timeStyle: 'short',
-        timeZone: 'Asia/Dubai',
-      }).format(new Date(target))
-    : '';
+  // Waitlist until the owner flips settings.store.open; a failing flag read keeps the waitlist up.
+  const open = await isStoreOpen().catch(() => false);
+  if (!open)
+    return <WaitlistLanding locale={locale} referral={typeof ref === 'string' ? ref : null} />;
+
+  const t = getDictionary(locale);
+  const catalogue = getCatalogue();
+  const drop = await catalogue.getCurrentDrop();
+  const products = await catalogue.listProducts(drop ? { dropSlug: drop.slug } : {});
+  const dropTitle = drop ? localName(locale, drop.titleEn, drop.titleAr) : t.hero.eyebrow;
 
   return (
     <>
-      <SiteHeader
-        locale={locale}
-        t={t.nav}
-        path=""
-        query={refCode ? `ref=${refCode}` : undefined}
-      />
+      <SiteHeader locale={locale} t={t.nav} path="" nav={storeNav(locale, t.store, drop)} />
       <main>
         <section className="linen-texture border-ink/5 border-y">
-          <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.2fr_1fr] lg:items-end">
-            <div className="space-y-6">
-              <p className="text-olive text-sm tracking-[0.3em] uppercase">{dropTitle}</p>
-              <h1 className="font-display text-5xl leading-[1.05] sm:text-7xl">{t.hero.title}</h1>
-              <p className="text-muted max-w-md text-lg">{t.hero.line}</p>
-              <a href="#join" className="btn-primary inline-flex">
-                {t.hero.cta}
-              </a>
-            </div>
-            {target && (
-              <Countdown target={target} dateLabel={dateLabel} locale={locale} t={t.countdown} />
+          <div className="mx-auto max-w-6xl space-y-6 px-4 py-16 sm:px-8 sm:py-24">
+            <p className="text-olive text-sm tracking-[0.3em] uppercase">{dropTitle}</p>
+            <h1 className="font-display text-5xl leading-[1.05] sm:text-7xl">{t.hero.title}</h1>
+            <p className="text-muted max-w-md text-lg">{t.store.heroLine}</p>
+            {drop && (
+              <Link
+                href={`/${locale}/collections/${drop.slug}`}
+                className="btn-primary inline-flex"
+              >
+                {fill(t.store.shopDrop, { drop: dropTitle })}
+              </Link>
             )}
           </div>
         </section>
-
-        <section className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-8 sm:py-24 md:grid-cols-2">
-          <article className="space-y-4">
-            <h2 className="font-display text-3xl">{t.founder.title}</h2>
-            <p className="text-muted leading-7">{t.founder.body}</p>
-          </article>
-          <article className="space-y-4">
-            <h2 className="font-display text-3xl">{t.fabric.title}</h2>
-            <p className="text-muted leading-7">{t.fabric.body}</p>
-          </article>
-        </section>
-
-        <section id="join" aria-labelledby="join-title" className="bg-sand/60">
-          <div className="mx-auto max-w-2xl space-y-6 px-4 py-16 sm:px-8 sm:py-24">
-            <h2 id="join-title" className="font-display text-4xl">
-              {t.form.title}
-            </h2>
-            <p className="text-muted">{t.form.intro}</p>
-            <WaitlistForm
-              locale={locale}
-              refCode={refCode}
-              privacyHref={`/${locale}/privacy`}
-              t={{ form: t.form, errors: t.errors, success: t.success, received: t.received }}
-            />
-          </div>
+        <section
+          aria-labelledby="drop-title"
+          className="mx-auto max-w-6xl space-y-8 px-4 py-16 sm:px-8"
+        >
+          <h2 id="drop-title" className="font-display text-3xl">
+            {dropTitle}
+          </h2>
+          <ProductGrid products={products} locale={locale} t={t.store} />
         </section>
       </main>
       <SiteFooter locale={locale} t={t.footer} />

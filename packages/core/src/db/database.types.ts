@@ -1390,6 +1390,13 @@ export type Database = {
         }[];
       };
       next_order_number: { Args: never; Returns: string };
+      variant_availability: {
+        Args: { p_product_id: string };
+        Returns: {
+          available: boolean;
+          variant_id: string;
+        }[];
+      };
       write_audit: {
         Args: {
           p_action: string;

@@ -32,6 +32,13 @@ html {
   }
 }
 
+/* Cormorant's default old-style figures make "Drop 01" read "Drop oı": use lining figures. */
+@layer base {
+  .font-display {
+    font-variant-numeric: lining-nums;
+  }
+}
+
 :focus-visible {
   outline: 2px solid var(--color-olive);
   outline-offset: 3px;

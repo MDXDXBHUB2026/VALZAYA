@@ -9,7 +9,7 @@
     "start": "next start --port 3000",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint .",
-    "test:e2e": "playwright test"
+    "test:e2e": "next build && playwright test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

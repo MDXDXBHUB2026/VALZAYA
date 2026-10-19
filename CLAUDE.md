@@ -18,7 +18,10 @@
 - Accepted Security Advisor warnings (reviewed 2026-10-19, do not re-open without new facts):
   `is_staff` callable by anon/authenticated (needed by public-read policies; reveals only the
   caller's own staff status) and `apply_order_transition` callable by authenticated (rejects
-  non-staff internally; covered by RLS test "customer cannot change order status").
+  non-staff internally; covered by RLS test "customer cannot change order status"). Added
+  2026-10-19: `variant_availability` callable by anon/authenticated (the public catalogue; returns
+  one boolean per active variant, never stock counts) and INFO `private.rate_limits` RLS with no
+  policies (service-role only by design; not in an exposed schema).
 - Never deploy to production. Ask me before installing anything system-wide.
 - Never put machine-specific paths or settings (drive letters, store/cache dirs) in the repo.
 
