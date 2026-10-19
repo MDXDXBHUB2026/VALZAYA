@@ -17,6 +17,7 @@
     "db:push": "supabase db push --linked",
     "db:reset": "supabase db reset --linked",
     "db:test": "supabase test db --linked",
+    "db:test:editor": "node scripts/sql-editor/build-rls-check.mjs",
     "db:types": "supabase gen types typescript --linked --schema public > packages/core/src/db/database.types.ts && prettier --write packages/core/src/db/database.types.ts"
   },
   "devDependencies": {
