@@ -1,5 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { a11yViolations } from './a11y';
 
 let seq = 0;
 const unique = () =>
@@ -214,10 +214,7 @@ test.describe('accessibility (axe, WCAG 2.1 A/AA)', () => {
   for (const path of ['/en', '/ar', '/en/privacy']) {
     test(`no violations on ${path}`, async ({ page }) => {
       await page.goto(path);
-      const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-        .analyze();
-      expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      expect(await a11yViolations(page)).toEqual([]);
     });
   }
 
@@ -225,9 +222,6 @@ test.describe('accessibility (axe, WCAG 2.1 A/AA)', () => {
     await page.goto('/en');
     await submit(page);
     await expect(page.locator('#join').getByRole('alert')).toBeVisible();
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      .analyze();
-    expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+    expect(await a11yViolations(page)).toEqual([]);
   });
 });

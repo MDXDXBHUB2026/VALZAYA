@@ -1,5 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { a11yViolations } from './a11y';
 import { storeURL } from '../playwright.config';
 
 /** Store mode (STOREFRONT_STORE_OPEN=true) on the second server; fixtures mirror seed.sql. */
@@ -115,10 +115,7 @@ test.describe('store mode: catalogue', () => {
   ]) {
     test(`no axe violations on ${path}`, async ({ page }) => {
       await page.goto(path);
-      const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-        .analyze();
-      expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      expect(await a11yViolations(page)).toEqual([]);
     });
   }
 });
