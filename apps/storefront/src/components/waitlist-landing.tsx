@@ -4,7 +4,7 @@ import { SiteFooter, SiteHeader } from '@/components/site-chrome';
 import { WaitlistForm } from '@/components/waitlist-form';
 import type { Locale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/get-dictionary';
-import { getWaitlistBackend } from '@/lib/waitlist/backend';
+import { getCatalogue, type CatalogueDrop } from '@/lib/catalogue';
 
 /** Waitlist mode (settings.store.open = false): the Step A landing page. */
 export async function WaitlistLanding({
@@ -17,9 +17,13 @@ export async function WaitlistLanding({
   const t = getDictionary(locale);
   const refCode = normalizeReferralCode(referral);
 
-  const drop = await getWaitlistBackend()
-    .getTeaserDrop()
-    .catch(() => null); // The waitlist must still work if the teaser query fails.
+  // Public drop data via the anon catalogue reader; the page must render even if it fails.
+  let drop: CatalogueDrop | null = null;
+  try {
+    drop = await getCatalogue().getCurrentDrop();
+  } catch {
+    drop = null;
+  }
   const target = drop?.earlyAccessAt ?? drop?.opensAt ?? null;
   const dropTitle = drop
     ? locale === 'ar'

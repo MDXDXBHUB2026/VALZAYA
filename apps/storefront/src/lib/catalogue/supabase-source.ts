@@ -51,7 +51,7 @@ export function createSupabaseCatalogue(): CatalogueSource {
       })[],
       { merge: false }
     >();
-    if (error) throw new Error(`catalogue query failed: ${error.code ?? 'unknown'}`);
+    if (error) throw new Error(`catalogue query failed: ${error.code || error.message}`);
     return data;
   }
 
@@ -62,7 +62,7 @@ export function createSupabaseCatalogue(): CatalogueSource {
         .select('value')
         .eq('key', 'store.open')
         .maybeSingle();
-      if (error) throw new Error(`settings query failed: ${error.code ?? 'unknown'}`);
+      if (error) throw new Error(`settings query failed: ${error.code || error.message}`);
       return data?.value === true;
     },
 
@@ -79,7 +79,7 @@ export function createSupabaseCatalogue(): CatalogueSource {
             { product_variants: { products: { slug: string } | null } | null }[],
             { merge: false }
           >();
-        if (error) throw new Error(`drop items query failed: ${error.code ?? 'unknown'}`);
+        if (error) throw new Error(`drop items query failed: ${error.code || error.message}`);
         slugs = [
           ...new Set(
             data.flatMap((r) =>
@@ -99,7 +99,7 @@ export function createSupabaseCatalogue(): CatalogueSource {
       const [row] = await products([slug]);
       if (!row || row.product_variants.length === 0) return null;
       const { data, error } = await db.rpc('variant_availability', { p_product_id: row.id });
-      if (error) throw new Error(`availability query failed: ${error.code ?? 'unknown'}`);
+      if (error) throw new Error(`availability query failed: ${error.code || error.message}`);
       return mapProduct(row, new Map(data.map((a) => [a.variant_id, a.available])));
     },
 
@@ -110,7 +110,7 @@ export function createSupabaseCatalogue(): CatalogueSource {
         .eq('slug', slug)
         .in('status', [...PUBLISHED_DROP])
         .maybeSingle();
-      if (error) throw new Error(`drop query failed: ${error.code ?? 'unknown'}`);
+      if (error) throw new Error(`drop query failed: ${error.code || error.message}`);
       return data ? toDrop(data) : null;
     },
 
@@ -122,7 +122,7 @@ export function createSupabaseCatalogue(): CatalogueSource {
         .order('number')
         .limit(1)
         .maybeSingle();
-      if (error) throw new Error(`drop query failed: ${error.code ?? 'unknown'}`);
+      if (error) throw new Error(`drop query failed: ${error.code || error.message}`);
       return data ? toDrop(data) : null;
     },
   };

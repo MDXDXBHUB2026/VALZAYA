@@ -3,6 +3,7 @@
 import { handleWaitlistSignup, type WaitlistOutcome } from '@valzaya/core';
 import { headers } from 'next/headers';
 import { isLocale } from '@/i18n/config';
+import { getCatalogue } from '@/lib/catalogue';
 import { getWaitlistBackend } from '@/lib/waitlist/backend';
 import { hmacHex } from '@/lib/waitlist/hash';
 
@@ -54,7 +55,7 @@ export async function joinWaitlist(
   try {
     const h = await headers();
     const backend = getWaitlistBackend();
-    const drop = await backend.getTeaserDrop();
+    const drop = await getCatalogue().getCurrentDrop();
     const outcome = await handleWaitlistSignup(
       raw,
       {
