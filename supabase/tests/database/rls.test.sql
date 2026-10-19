@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(40);
+select plan(44);
 
 -- Fixtures (as the migration owner; RLS bypassed) -----------------------------------------
 insert into auth.users (id, instance_id, aud, role, email) values
@@ -111,6 +111,15 @@ select lives_ok(
      values ('a0000000-0000-4000-8000-00000000000a', 'marketing_email', false, 'account', 'v1') $$,
   'customer can withdraw their own consent by appending a row');
 
+-- Returns: customer opens one on their own order; rma_no comes from private.next_rma_number().
+select lives_ok(
+  $$ insert into public.returns (order_id, customer_id, type, reason)
+     values ('0a000000-0000-4000-8000-0000000000a1', 'a0000000-0000-4000-8000-00000000000a', 'refund', 'test') $$,
+  'customer can open a return on their own order');
+select ok((select bool_and(rma_no ~ '^RMA-[0-9]{6,}$') from public.returns
+           where order_id = '0a000000-0000-4000-8000-0000000000a1'),
+  'customer return gets an RMA number from the private generator');
+
 -- Anonymous ---------------------------------------------------------------------------------
 reset role;
 set local role anon;
@@ -139,6 +148,8 @@ select throws_ok(
   $$ insert into public.consents (email, channel, granted, source, policy_version)
      values ('anon@valzaya.test', 'marketing_email', true, 'waitlist', 'v1') $$,
   '42501', null, 'anon cannot insert consents directly (server-side only)');
+select throws_ok($$ select private.next_rma_number() $$,
+  '42501', null, 'anon cannot call the RMA number generator');
 
 -- Ops staff -----------------------------------------------------------------------------------
 reset role;
@@ -174,6 +185,8 @@ select isnt_empty($$ select 1 from public.waitlist_signups where id = '5b000000-
 select throws_ok(
   $$ update public.consents set granted = false where id = 'c0d00000-0000-4000-8000-0000000000d1' $$,
   null, null, 'consents are append-only, even for the table owner');
+select hasnt_function('public', 'next_rma_number',
+  'RMA number generator is not in the API-exposed public schema');
 
 select * from finish();
 rollback;

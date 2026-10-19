@@ -27,7 +27,8 @@ Prerequisites: Node 24+, Git for Windows, VS Code. No Docker needed — we use t
    pnpm -v   # 10.34.7 (pinned by "packageManager" in package.json)
    ```
 
-   The pnpm store is pinned to `D:\pnpm-store` in `.npmrc`; the npm cache is `D:\npm-cache`.
+   Keep the pnpm store on D: with a **user-level** setting (not in the repo, so Linux CI and cloud
+   sessions are unaffected): `pnpm config set store-dir D:\pnpm-store`. The npm cache is `D:\npm-cache`.
 
 2. **Install**
 
