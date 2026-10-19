@@ -9,7 +9,7 @@ select set_config('vz.tap', '', true);
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select set_config('vz.tap', current_setting('vz.tap') || E'\n' || plan(62), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || plan(65), true);
 
 -- Fixtures (as the migration owner; RLS bypassed) -----------------------------------------
 insert into auth.users (id, instance_id, aud, role, email) values
@@ -49,6 +49,20 @@ insert into public.waitlist_signups (id, customer_id, email, source, consent_id)
   ('5a000000-0000-4000-8000-0000000000a1', 'a0000000-0000-4000-8000-00000000000a', 'alice@valzaya.test', 'landing', 'c0a00000-0000-4000-8000-0000000000a1'),
   ('5b000000-0000-4000-8000-0000000000b1', 'b0000000-0000-4000-8000-00000000000b', 'bob@valzaya.test',   'landing', 'c0b00000-0000-4000-8000-0000000000b1'),
   ('5d000000-0000-4000-8000-0000000000d1', null,                                   'guest@valzaya.test', 'landing', 'c0d00000-0000-4000-8000-0000000000d1');
+
+-- Catalogue: one active product with an in-stock, a sold-out and a pre-order variant.
+insert into public.products (id, slug, style_code, gender, name_en, name_ar, description_en, description_ar,
+                             fabric, care_en, care_ar, origin_country, status)
+values ('a1000000-0000-4000-8000-000000000001', 'test-active-product', 'TSTACT', 'unisex', 'Active', 'نشط',
+        'd', 'د', '100% linen', 'c', 'ع', 'AE', 'active');
+insert into public.product_variants (id, product_id, sku, size, colour_code, colour_en, colour_ar, price_fils,
+                                     stock_mode, preorder_ship_date, active) values
+  ('a1000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-000000000001', 'VZ-TSTACT-SAND-M', 'M', 'SAND', 'Sand', 'رملي', 10000, 'stock', null, true),
+  ('a1000000-0000-4000-8000-0000000000a2', 'a1000000-0000-4000-8000-000000000001', 'VZ-TSTACT-SAND-L', 'L', 'SAND', 'Sand', 'رملي', 10000, 'stock', null, true),
+  ('a1000000-0000-4000-8000-0000000000a3', 'a1000000-0000-4000-8000-000000000001', 'VZ-TSTACT-SAND-S', 'S', 'SAND', 'Sand', 'رملي', 10000, 'preorder', '2026-12-15', true),
+  ('a1000000-0000-4000-8000-0000000000a4', 'a1000000-0000-4000-8000-000000000001', 'VZ-TSTACT-SAND-XS', 'XS', 'SAND', 'Sand', 'رملي', 10000, 'stock', null, false);
+insert into public.inventory_movements (variant_id, location, delta_on_hand, reason, source)
+values ('a1000000-0000-4000-8000-0000000000a1', 'warehouse', 3, 'initial_count', 'manual');
 
 -- Customer A (alice) --------------------------------------------------------------------------
 set local role authenticated;
@@ -158,6 +172,16 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   '42501', null, 'anon cannot insert consents directly (server-side only)'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok($$ select private.next_rma_number() $$,
   '42501', null, 'anon cannot call the RMA number generator'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(
+  (select array_agg(variant_id::text || '=' || available::text order by variant_id)
+     from public.variant_availability('a1000000-0000-4000-8000-000000000001')),
+  array['a1000000-0000-4000-8000-0000000000a1=true', 'a1000000-0000-4000-8000-0000000000a2=false',
+        'a1000000-0000-4000-8000-0000000000a3=true'],
+  'anon: availability is a boolean per active variant (stocked, sold out, pre-order; inactive hidden)'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is_empty($$ select * from public.variant_availability(
+    (select id from public.products where slug = 'test-draft-product')) $$,
+  'anon: availability of a draft product is empty'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is_empty($$ select 1 from public.inventory_levels $$, 'anon cannot read raw stock levels'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   $$ select * from public.join_waitlist('anon@valzaya.test', null, true, false, 'en', 'landing', null, null) $$,
   '42501', null, 'anon cannot call join_waitlist directly (server action only)'), true);

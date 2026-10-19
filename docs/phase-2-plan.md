@@ -39,14 +39,19 @@ Goal: a page that collects consented sign-ups, deployable on its own.
 - Screenshots EN + AR (mobile + desktop); Lighthouse for the landing page.
 - typecheck, lint, Vitest, Playwright green in CI.
 
-## Step B — Store mode (behind `store.open = true`), after Step A is accepted
-Outline only; detailed plan comes at the Step A sign-off.
-- Catalogue: home, men / women / drop collections, product page (size guide, fabric + care EN/AR, stock-mode badge, units-left for capped drops, WhatsApp size-advice link).
-- **Schema gaps to close first:** `inventory_levels` is staff-only, so availability needs a narrow public read (per-variant "available yes/no" and per-drop units left, never raw stock numbers); there is no reservation table — add `inventory_reservations` (cart/order, variant, qty, `expires_at`) with a 20-min pg_cron release; capped-drop accounting under a row lock so a drop never oversells; pre-order variants count against the drop cap, not stock.
-- Early-access gate (waitlist emails, magic link), cart (guest + logged in, merge on login), checkout (contact, UAE emirate / international address, delivery option, VAT line) → **mock** payment session → order `pending_payment`.
-- Account: magic-link login, order history, addresses, consents.
-- SEO: metadata, Open Graph, product JSON-LD, sitemap, hreflang en/ar; images from Supabase Storage via `next/image`.
-- Acceptance: Playwright browse → cart → mock checkout → order `pending_payment`; RTL screenshots; Lighthouse home + product.
+## Step B — Store mode (behind `store.open = true`)
+Step A accepted 2026-10-19. Built in PR-sized slices, each with its own tests, then STOP at the end of B6.
+
+| Slice | Scope | Schema |
+|---|---|---|
+| **B1 Catalogue** | Store home (replaces the waitlist when `store.open` is true), collections (`men`, `women`, drop slug), product page: colour/size selection without JS, price (VAT-inclusive), stock badge ("Ships in 2 days" / "Pre-order — ships by …" / "Made to order" / "Sold out"), size guide, fabric + care EN/AR, WhatsApp size-advice link (only if `NEXT_PUBLIC_WHATSAPP_NUMBER` is set), product JSON-LD. With the store closed, catalogue routes redirect to the waitlist. | `variant_availability(product_id)`: per-variant in-stock **boolean** only — raw stock numbers stay staff-only. |
+| **B2 Reservations + drop accounting** | Never oversell: stock reservations and capped-drop accounting under row locks; 20-min expiry. Units-left counter on the product page. | `inventory_reservations`, `order_items.drop_id`, `drop_units_left(drop_id)`, `reserve_cart()` / `release_expired_reservations()` (pg_cron or on-demand release). |
+| **B3 Cart** | Guest cart (hashed token cookie) + signed-in cart, merge on login, line edit/remove, VAT-inclusive totals with VAT line. | Uses existing `carts` / `cart_items`; guest writes via service role. |
+| **B4 Checkout (mock payment)** | Contact, address (UAE emirate picker + international), delivery option from `settings.shipping.rates`, server-recomputed totals → reservation → order `pending_payment` → **mock** payment session. | `create_order_from_cart()` (one transaction, prices from DB, never from the client). |
+| **B5 Account + early access** | Magic-link login (Supabase Auth), order history, addresses, consents; early-access window: only waitlisted emails can buy. | Auth redirect URLs on valzaya-dev. |
+| **B6 SEO + acceptance** | Metadata, Open Graph, sitemap, hreflang; Playwright browse → cart → mock checkout → `pending_payment`; RTL screenshots; Lighthouse home + product. | — |
+
+Defaults used (change any time): size guide is a placeholder table in cm marked for replacement; product imagery is a colour-swatch placeholder until real photos are uploaded to Storage; delivery options = `settings.shipping.rates` (UAE standard free, express AED 35 — seed values).
 
 ## What I need from you before building
 | # | Decision / input | Default if you don't answer |
