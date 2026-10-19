@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(44);
+select plan(62);
 
 -- Fixtures (as the migration owner; RLS bypassed) -----------------------------------------
 insert into auth.users (id, instance_id, aud, role, email) values
@@ -119,6 +119,9 @@ select lives_ok(
 select ok((select bool_and(rma_no ~ '^RMA-[0-9]{6,}$') from public.returns
            where order_id = '0a000000-0000-4000-8000-0000000000a1'),
   'customer return gets an RMA number from the private generator');
+select throws_ok(
+  $$ select * from public.join_waitlist('alice@valzaya.test', null, true, false, 'en', 'landing', null, null) $$,
+  '42501', null, 'customer cannot call join_waitlist (service role only)');
 
 -- Anonymous ---------------------------------------------------------------------------------
 reset role;
@@ -150,6 +153,14 @@ select throws_ok(
   '42501', null, 'anon cannot insert consents directly (server-side only)');
 select throws_ok($$ select private.next_rma_number() $$,
   '42501', null, 'anon cannot call the RMA number generator');
+select throws_ok(
+  $$ select * from public.join_waitlist('anon@valzaya.test', null, true, false, 'en', 'landing', null, null) $$,
+  '42501', null, 'anon cannot call join_waitlist directly (server action only)');
+select throws_ok(
+  $$ select public.hit_rate_limit('waitlist:ip', repeat('a', 64), 5, 600) $$,
+  '42501', null, 'anon cannot call hit_rate_limit');
+select throws_ok($$ select 1 from private.rate_limits $$,
+  '42501', null, 'anon cannot read rate limit counters');
 
 -- Ops staff -----------------------------------------------------------------------------------
 reset role;
@@ -175,6 +186,50 @@ select is((select count(*)::int from public.consents
            where id in ('c0a00000-0000-4000-8000-0000000000a1', 'c0b00000-0000-4000-8000-0000000000b1',
                         'c0d00000-0000-4000-8000-0000000000d1')), 3,
   'ops can read all consents');
+
+-- Service role: the waitlist write path used by the storefront server action -----------------
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
+select is(
+  (select already_joined from public.join_waitlist('new@valzaya.test', null, true, false, 'en', 'landing', null, null)),
+  false, 'join_waitlist: new email joins');
+select ok(
+  (select referral_code ~ '^[0-9A-F]{10}$' and queue_position >= 1
+     from public.join_waitlist('wa@valzaya.test', '+971500000009', true, true, 'ar', 'landing', null, null)),
+  'join_waitlist: returns a referral code and a queue position');
+select is(
+  (select already_joined from public.join_waitlist('NEW@valzaya.test', null, true, false, 'en', 'landing', null, null)),
+  true, 'join_waitlist: repeat sign-up (any case) is detected');
+select is(
+  (select referral_code from public.join_waitlist('new@valzaya.test', '+971500000099', true, true, 'en', 'landing', null, null)),
+  (select referral_code from public.waitlist_signups where email = 'new@valzaya.test'),
+  'join_waitlist: repeat sign-up returns the original row');
+select is((select phone from public.waitlist_signups where email = 'new@valzaya.test'), null,
+  'join_waitlist: repeat sign-up does not change the stored contact details');
+select is((select count(*)::int from public.consents where email = 'new@valzaya.test' and not granted), 0,
+  'join_waitlist: public form never records a consent withdrawal');
+select lives_ok(
+  $$ select * from public.join_waitlist('friend@valzaya.test', null, true, false, 'en', 'landing',
+       (select lower(referral_code) from public.waitlist_signups where email = 'new@valzaya.test'), null) $$,
+  'join_waitlist: accepts a referral code');
+select is(
+  (select referred_by from public.waitlist_signups where email = 'friend@valzaya.test'),
+  (select id from public.waitlist_signups where email = 'new@valzaya.test'),
+  'join_waitlist: referral is attributed to the referrer');
+select throws_ok(
+  $$ select * from public.join_waitlist('noconsent@valzaya.test', null, false, false, 'en', 'landing', null, null) $$,
+  '22023', null, 'join_waitlist: email without consent is rejected');
+select throws_ok(
+  $$ select * from public.join_waitlist(null, '+971500000077', false, false, 'en', 'landing', null, null) $$,
+  '22023', null, 'join_waitlist: WhatsApp number without consent is rejected');
+select throws_ok(
+  $$ select * from public.join_waitlist(null, null, true, true, 'en', 'landing', null, null) $$,
+  '22023', null, 'join_waitlist: a contact is required');
+select is(public.hit_rate_limit('test:bucket', repeat('b', 64), 2, 600), true, 'rate limit: 1st hit allowed');
+select is(public.hit_rate_limit('test:bucket', repeat('b', 64), 2, 600), true, 'rate limit: 2nd hit allowed');
+select is(public.hit_rate_limit('test:bucket', repeat('b', 64), 2, 600), false, 'rate limit: 3rd hit blocked');
 
 -- Back to owner role to verify the blocked write -------------------------------------------
 reset role;
