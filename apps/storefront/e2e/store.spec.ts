@@ -46,6 +46,7 @@ test.describe('store mode: catalogue', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Men’s Linen Set');
     await expect(page.getByTestId('price')).toContainText('1,450.00');
     await expect(page.getByText('Price includes 5% VAT.')).toBeVisible();
+    await expect(page.getByTestId('drop-units')).toHaveText('60 of 60 pieces left in Drop 01');
     await expect(page.getByTestId('stock-badge')).toHaveText('Select a size to see delivery.');
 
     await page.getByRole('link', { name: 'M', exact: true }).click();
@@ -100,6 +101,9 @@ test.describe('store mode: catalogue', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('طقم كتان رجالي');
     await expect(page.getByTestId('stock-badge')).toHaveText('يُشحن خلال يومين');
+    await expect(page.getByTestId('drop-units')).toHaveText(
+      'تبقّى 60 من أصل 60 قطعة في الإصدار 01',
+    );
     // Language toggle keeps the selected variant.
     await expect(page.getByTestId('language-toggle')).toHaveAttribute(
       'href',
