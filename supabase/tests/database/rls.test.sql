@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(79);
+select plan(85);
 
 -- Fixtures (as the migration owner; RLS bypassed) -----------------------------------------
 insert into auth.users (id, instance_id, aud, role, email) values
@@ -153,6 +153,9 @@ select is_empty($$ select 1 from public.inventory_reservations $$,
 select throws_ok(
   $$ select * from public.reserve_cart('ca000000-0000-4000-8000-0000000000a1') $$,
   '42501', null, 'customer cannot call reserve_cart (service role only)');
+select throws_ok(
+  $$ select public.cart_add_item('ca000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-0000000000a1') $$,
+  '42501', null, 'customer cannot call cart_add_item (server only)');
 
 -- Anonymous ---------------------------------------------------------------------------------
 reset role;
@@ -212,6 +215,17 @@ select throws_ok(
 select throws_ok(
   $$ select public.release_expired_reservations() $$,
   '42501', null, 'anon cannot call release_expired_reservations');
+select throws_ok($$ select public.cart_for_guest(repeat('a', 64), true) $$,
+  '42501', null, 'anon cannot call cart_for_guest (guest carts are server-side only)');
+select throws_ok(
+  $$ select public.cart_add_item('ca000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-0000000000a1') $$,
+  '42501', null, 'anon cannot call cart_add_item');
+select throws_ok(
+  $$ select public.cart_set_quantity('ca000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-0000000000a1', 0) $$,
+  '42501', null, 'anon cannot call cart_set_quantity');
+select throws_ok(
+  $$ select public.merge_carts('ca000000-0000-4000-8000-0000000000a1', 'ca000000-0000-4000-8000-0000000000a2') $$,
+  '42501', null, 'anon cannot call merge_carts');
 select throws_ok(
   $$ select private.drop_units_used('d1000000-0000-4000-8000-000000000001') $$,
   '42501', null, 'anon cannot call the private drop accounting helpers');
@@ -300,6 +314,8 @@ select is(public.hit_rate_limit('test:bucket', repeat('b', 64), 2, 600), true, '
 select is(public.hit_rate_limit('test:bucket', repeat('b', 64), 2, 600), false, 'rate limit: 3rd hit blocked');
 select is_empty($$ select * from public.reserve_cart('ca000000-0000-4000-8000-0000000000a1') $$,
   'reserve_cart: service role can call it (an empty cart holds nothing)');
+select is(public.cart_for_guest(repeat('f', 64)), null,
+  'cart_for_guest: service role can call it (unknown token, no cart created)');
 
 -- Back to owner role to verify the blocked write -------------------------------------------
 reset role;
