@@ -95,12 +95,6 @@ export function WaitlistForm({ locale, refCode, privacyHref, t }: Props) {
         )}
       </div>
 
-      {err('contact') && (
-        <p id={`${id}-contact`} className="text-error text-sm">
-          {err('contact')}
-        </p>
-      )}
-
       <div className="space-y-2">
         <label htmlFor={`${id}-email`} className="block text-sm font-medium">
           {t.form.email}
@@ -120,6 +114,11 @@ export function WaitlistForm({ locale, refCode, privacyHref, t }: Props) {
           )}
           className="field"
         />
+        {err('contact') && (
+          <p id={`${id}-contact`} className="text-error text-sm">
+            {err('contact')}
+          </p>
+        )}
         {err('email') && (
           <p id={`${id}-email-error`} className="text-error text-sm">
             {err('email')}

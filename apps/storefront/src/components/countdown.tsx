@@ -55,7 +55,7 @@ export function Countdown({ target, dateLabel, locale, t }: Props) {
         <ol aria-hidden="true" className="flex gap-6 sm:gap-10" data-testid="countdown">
           {(['days', 'hours', 'minutes', 'seconds'] as const).map((unit) => (
             <li key={unit} className="flex flex-col items-start">
-              <span className="font-display text-4xl tabular-nums sm:text-5xl">
+              <span className="font-display text-4xl lining-nums tabular-nums sm:text-5xl">
                 {now === null ? '––' : nf.format(p[unit])}
               </span>
               <span className="text-muted text-xs tracking-wide">{t.units[unit]}</span>

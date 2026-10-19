@@ -7,16 +7,21 @@ import '../globals.css';
 
 const display = Cormorant_Garamond({
   subsets: ['latin'],
-  weight: ['400', '500'],
+  weight: '400',
   variable: '--font-cormorant',
   display: 'swap',
 });
-const sans = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+// Body fonts use `optional`: first paint keeps the size-matched fallback and never repaints,
+// so text is the LCP at first paint on slow connections (the serif headline still swaps in).
+const sans = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'optional' });
 const arabic = IBM_Plex_Sans_Arabic({
   subsets: ['arabic'],
   weight: ['400', '500'],
   variable: '--font-plex-arabic',
-  display: 'swap',
+  display: 'optional',
+  // Not preloaded: English pages would download Arabic glyphs for nothing. With `optional`, a
+  // slow first visit shows the Arabic system font; cached visits use IBM Plex.
+  preload: false,
 });
 
 export const viewport: Viewport = { themeColor: '#f6f2ea' };
