@@ -30,6 +30,13 @@ export interface CatalogueProduct {
   careAr: string | null;
   originCountry: string | null;
   variants: CatalogueVariant[];
+  /** The drop this product's variants count against, with its public units-left counter. */
+  drop: ProductDrop | null;
+}
+
+export interface ProductDrop extends CatalogueDrop {
+  /** drop_units_left(): unit_cap minus sold and held units, never negative. */
+  unitsLeft: number;
 }
 
 export interface ProductSummary {
@@ -63,9 +70,7 @@ export interface CatalogueSource {
   getCurrentDrop(): Promise<CatalogueDrop | null>;
 }
 
-export function summarise(
-  p: Omit<CatalogueProduct, 'variants'> & { variants: CatalogueVariant[] },
-): ProductSummary {
+export function summarise(p: Omit<CatalogueProduct, 'drop'>): ProductSummary {
   const colours = new Map<string, { code: string; en: string; ar: string | null }>();
   for (const v of [...p.variants].sort((a, b) => a.sortOrder - b.sortOrder)) {
     if (!colours.has(v.colourCode))

@@ -84,6 +84,8 @@ const en = {
     from: 'From {price}',
     colours: '{count} colours',
     vatIncluded: 'Price includes 5% VAT.',
+    dropUnitsLeft: '{left} of {cap} pieces left in {drop}',
+    dropSoldOut: '{drop} is sold out.',
     colour: 'Colour',
     size: 'Size',
     selectSize: 'Select a size to see delivery.',

@@ -9,6 +9,7 @@ import {
   type CatalogueProduct,
   type CatalogueSource,
   type CatalogueVariant,
+  type ProductDrop,
 } from './types';
 
 const PUBLISHED_DROP = ['scheduled', 'early_access', 'open'] as const;
@@ -55,6 +56,33 @@ export function createSupabaseCatalogue(): CatalogueSource {
     return data;
   }
 
+  /**
+   * The drop a product counts against: the lowest-numbered published, unclosed drop listing any
+   * of its variants (mirrors private.variant_drop), with drop_units_left() for the counter.
+   */
+  async function productDrop(variantIds: string[]): Promise<ProductDrop | null> {
+    const { data, error } = await db
+      .from('drop_items')
+      .select('drops (*)')
+      .in('variant_id', variantIds)
+      .overrideTypes<{ drops: DropRow | null }[], { merge: false }>();
+    if (error) throw new Error(`product drop query failed: ${error.code || error.message}`);
+    const now = Date.now();
+    const [drop] = data
+      .flatMap((r) => (r.drops ? [r.drops] : []))
+      .filter(
+        (d) =>
+          (PUBLISHED_DROP as readonly string[]).includes(d.status) &&
+          (d.closes_at === null || Date.parse(d.closes_at) > now),
+      )
+      .sort((a, b) => a.number - b.number);
+    if (!drop) return null;
+    const left = await db.rpc('drop_units_left', { p_drop_id: drop.id });
+    if (left.error)
+      throw new Error(`units left query failed: ${left.error.code || left.error.message}`);
+    return { ...toDrop(drop), unitsLeft: left.data ?? 0 };
+  }
+
   return {
     async isStoreOpen() {
       const { data, error } = await db
@@ -98,9 +126,18 @@ export function createSupabaseCatalogue(): CatalogueSource {
     async getProduct(slug) {
       const [row] = await products([slug]);
       if (!row || row.product_variants.length === 0) return null;
-      const { data, error } = await db.rpc('variant_availability', { p_product_id: row.id });
-      if (error) throw new Error(`availability query failed: ${error.code || error.message}`);
-      return mapProduct(row, new Map(data.map((a) => [a.variant_id, a.available])));
+      const [availability, drop] = await Promise.all([
+        db.rpc('variant_availability', { p_product_id: row.id }),
+        productDrop(row.product_variants.map((v) => v.id)),
+      ]);
+      if (availability.error)
+        throw new Error(
+          `availability query failed: ${availability.error.code || availability.error.message}`,
+        );
+      return {
+        ...mapProduct(row, new Map(availability.data.map((a) => [a.variant_id, a.available]))),
+        drop,
+      };
     },
 
     async getDrop(slug) {
@@ -133,7 +170,7 @@ function mapProduct(
     product_variants: Database['public']['Tables']['product_variants']['Row'][];
   },
   availability: Map<string, boolean>,
-): CatalogueProduct {
+): Omit<CatalogueProduct, 'drop'> {
   const variants: CatalogueVariant[] = p.product_variants
     .map((v) => ({
       id: v.id,

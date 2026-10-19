@@ -133,6 +133,15 @@ export default async function ProductPage({
               {price(shown.priceFils, locale)}
             </p>
             <p className="text-muted text-xs">{s.vatIncluded}</p>
+            {product.drop && (
+              <p className="text-olive text-sm" data-testid="drop-units">
+                {fill(product.drop.unitsLeft > 0 ? s.dropUnitsLeft : s.dropSoldOut, {
+                  left: String(product.drop.unitsLeft),
+                  cap: String(product.drop.unitCap),
+                  drop: localName(locale, product.drop.titleEn, product.drop.titleAr),
+                })}
+              </p>
+            )}
           </header>
 
           <section aria-labelledby="colour-label" className="space-y-3">

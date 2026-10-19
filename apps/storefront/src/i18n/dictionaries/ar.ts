@@ -89,6 +89,8 @@ const ar: Dictionary = {
     from: 'ابتداءً من {price}',
     colours: '{count} ألوان',
     vatIncluded: 'السعر يشمل ضريبة القيمة المضافة 5%.',
+    dropUnitsLeft: 'تبقّى {left} من أصل {cap} قطعة في {drop}',
+    dropSoldOut: 'نفدت قطع {drop}.',
     colour: 'اللون',
     size: 'المقاس',
     selectSize: 'اختر مقاسًا لمعرفة موعد التوصيل.',

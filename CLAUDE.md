@@ -4,8 +4,9 @@
 - Mock payment and warehouse providers only. No real payment or 3PL credentials.
 - Development Supabase project only (`valzaya-dev`, cloud). Test data only — no real customer data.
 - Where work happens: Claude Code cloud sessions on the GitHub repo (MDXDXBHUB2026/VALZAYA) are the
-  primary workspace. GitHub is the source of truth; work lands via PRs that I merge. A local
-  Windows checkout is optional and not required.
+  primary workspace. GitHub is the source of truth; work lands via PRs. Claude may merge its own
+  PR into `main` (merge commit) once CI is green and nothing is unresolved (approved 2026-10-19);
+  `main` never deploys to production. A local Windows checkout is optional and not required.
 - No Docker anywhere: never a local Supabase stack, and `supabase test db` / `supabase db reset`
   do not work.
 - Migrations (cloud sessions; port 5432 is blocked): apply with the Supabase connector
@@ -21,7 +22,9 @@
   non-staff internally; covered by RLS test "customer cannot change order status"). Added
   2026-10-19: `variant_availability` callable by anon/authenticated (the public catalogue; returns
   one boolean per active variant, never stock counts) and INFO `private.rate_limits` RLS with no
-  policies (service-role only by design; not in an exposed schema).
+  policies (service-role only by design; not in an exposed schema). Pending your acceptance
+  (B2): `drop_units_left` callable by anon/authenticated (the public "N of M left" counter;
+  one number per published drop, null for drafts, nothing per variant).
 - Never deploy to production. Ask me before installing anything system-wide.
 - Never put machine-specific paths or settings (drive letters, store/cache dirs) in the repo.
 

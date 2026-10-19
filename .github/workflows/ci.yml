@@ -34,6 +34,23 @@ jobs:
       - run: pnpm format:check
       - run: pnpm test
 
+  db:
+    name: database (pgTAP + concurrency)
+    # Pinned: the runner image's Postgres major must match the postgresql-16-* packages.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # Plain Postgres 16 + pgTAP with a Supabase stub (supabase/tests/ci): no Docker, no secrets,
+      # never touches a Supabase project.
+      - name: Start Postgres 16 with pgTAP
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-16 postgresql-16-pgtap
+          sudo systemctl start postgresql.service
+          sudo -u postgres createuser --superuser "$USER"
+      - run: supabase/tests/run-db-tests.sh
+
   e2e:
     name: storefront e2e (Playwright)
     runs-on: ubuntu-latest

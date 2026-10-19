@@ -20,7 +20,7 @@ const COLOURS = [
 ];
 const SOLD_OUT = new Set(['VZ-MLS01-SAND-XXL', 'VZ-WLC01-OLIVE-XS']);
 
-const BASE: Omit<CatalogueProduct, 'variants' | 'id'>[] = [
+const BASE: Omit<CatalogueProduct, 'variants' | 'id' | 'drop'>[] = [
   {
     slug: 'men-linen-set',
     styleCode: 'MLS01',
@@ -85,7 +85,7 @@ const PRICING: Record<
   LSC01: { price: 29_500, mode: 'stock', ship: null },
 };
 
-const PRODUCTS: CatalogueProduct[] = BASE.map((p, i) => {
+const PRODUCTS: Omit<CatalogueProduct, 'drop'>[] = BASE.map((p, i) => {
   const { price, mode, ship } = PRICING[p.styleCode]!;
   const sizes = p.styleCode === 'LSC01' ? ['OS'] : SIZES;
   const variants = COLOURS.flatMap((c) =>
@@ -128,7 +128,11 @@ export function createMemoryCatalogue(): CatalogueSource {
       if (dropSlug !== undefined && dropSlug !== DROP_01.slug) return [];
       return PRODUCTS.filter((p) => matchesGender(p.gender, gender)).map(summarise);
     },
-    getProduct: async (slug) => PRODUCTS.find((p) => p.slug === slug) ?? null,
+    getProduct: async (slug) => {
+      const p = PRODUCTS.find((x) => x.slug === slug);
+      // Every seeded variant is in Drop 01; nothing is sold or held in memory mode.
+      return p ? { ...p, drop: { ...DROP_01, unitsLeft: DROP_01.unitCap } } : null;
+    },
     getDrop: async (slug) => (slug === DROP_01.slug ? DROP_01 : null),
     getCurrentDrop: async () => DROP_01,
   };

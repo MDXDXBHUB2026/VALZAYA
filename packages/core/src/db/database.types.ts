@@ -492,6 +492,77 @@ export type Database = {
           },
         ];
       };
+      inventory_reservations: {
+        Row: {
+          cart_id: string;
+          created_at: string;
+          drop_id: string | null;
+          expires_at: string;
+          id: string;
+          location: Database['public']['Enums']['inventory_location'] | null;
+          order_id: string | null;
+          quantity: number;
+          released_at: string | null;
+          status: Database['public']['Enums']['reservation_status'];
+          variant_id: string;
+        };
+        Insert: {
+          cart_id: string;
+          created_at?: string;
+          drop_id?: string | null;
+          expires_at: string;
+          id?: string;
+          location?: Database['public']['Enums']['inventory_location'] | null;
+          order_id?: string | null;
+          quantity: number;
+          released_at?: string | null;
+          status?: Database['public']['Enums']['reservation_status'];
+          variant_id: string;
+        };
+        Update: {
+          cart_id?: string;
+          created_at?: string;
+          drop_id?: string | null;
+          expires_at?: string;
+          id?: string;
+          location?: Database['public']['Enums']['inventory_location'] | null;
+          order_id?: string | null;
+          quantity?: number;
+          released_at?: string | null;
+          status?: Database['public']['Enums']['reservation_status'];
+          variant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'inventory_reservations_cart_id_fkey';
+            columns: ['cart_id'];
+            isOneToOne: false;
+            referencedRelation: 'carts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'inventory_reservations_drop_id_fkey';
+            columns: ['drop_id'];
+            isOneToOne: false;
+            referencedRelation: 'drops';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'inventory_reservations_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'inventory_reservations_variant_id_fkey';
+            columns: ['variant_id'];
+            isOneToOne: false;
+            referencedRelation: 'product_variants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       measurements: {
         Row: {
           created_at: string;
@@ -585,6 +656,7 @@ export type Database = {
           colour_ar: string | null;
           colour_en: string;
           created_at: string;
+          drop_id: string | null;
           id: string;
           line_net_fils: number;
           line_total_fils: number;
@@ -605,6 +677,7 @@ export type Database = {
           colour_ar?: string | null;
           colour_en: string;
           created_at?: string;
+          drop_id?: string | null;
           id?: string;
           line_net_fils: number;
           line_total_fils: number;
@@ -625,6 +698,7 @@ export type Database = {
           colour_ar?: string | null;
           colour_en?: string;
           created_at?: string;
+          drop_id?: string | null;
           id?: string;
           line_net_fils?: number;
           line_total_fils?: number;
@@ -642,6 +716,13 @@ export type Database = {
           vat_rate_bp?: number;
         };
         Relationships: [
+          {
+            foreignKeyName: 'order_items_drop_id_fkey';
+            columns: ['drop_id'];
+            isOneToOne: false;
+            referencedRelation: 'drops';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'order_items_order_id_fkey';
             columns: ['order_id'];
@@ -1358,6 +1439,7 @@ export type Database = {
         };
       };
       current_actor_type: { Args: never; Returns: string };
+      drop_units_left: { Args: { p_drop_id: string }; Returns: number };
       hit_rate_limit: {
         Args: {
           p_bucket: string;
@@ -1390,6 +1472,24 @@ export type Database = {
         }[];
       };
       next_order_number: { Args: never; Returns: string };
+      release_cart_reservations: {
+        Args: { p_cart_id: string };
+        Returns: number;
+      };
+      release_expired_reservations: {
+        Args: { p_limit?: number };
+        Returns: number;
+      };
+      reserve_cart: {
+        Args: { p_cart_id: string; p_hold_minutes?: number };
+        Returns: {
+          expires_at: string;
+          quantity: number;
+          reason: string;
+          reserved: boolean;
+          variant_id: string;
+        }[];
+      };
       variant_availability: {
         Args: { p_product_id: string };
         Returns: {
@@ -1454,6 +1554,7 @@ export type Database = {
       product_gender: 'men' | 'women' | 'unisex';
       product_status: 'draft' | 'active' | 'archived';
       refund_status: 'requested' | 'pending' | 'succeeded' | 'failed' | 'cancelled';
+      reservation_status: 'active' | 'released' | 'converted';
       return_status:
         | 'requested'
         | 'approved'
@@ -1653,6 +1754,7 @@ export const Constants = {
       product_gender: ['men', 'women', 'unisex'],
       product_status: ['draft', 'active', 'archived'],
       refund_status: ['requested', 'pending', 'succeeded', 'failed', 'cancelled'],
+      reservation_status: ['active', 'released', 'converted'],
       return_status: [
         'requested',
         'approved',
