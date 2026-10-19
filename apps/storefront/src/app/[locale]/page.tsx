@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
-import { ProductGrid, localName, storeNav } from '@/components/store-parts';
+import { ProductGrid, bagLink, localName, storeNav } from '@/components/store-parts';
 import { WaitlistLanding } from '@/components/waitlist-landing';
 import { fill, isLocale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/get-dictionary';
+import { getBag } from '@/lib/cart';
 import { getCatalogue, isStoreOpen } from '@/lib/catalogue';
 
 export default async function HomePage({ params, searchParams }: PageProps<'/[locale]'>) {
@@ -19,13 +20,19 @@ export default async function HomePage({ params, searchParams }: PageProps<'/[lo
 
   const t = getDictionary(locale);
   const catalogue = getCatalogue();
-  const drop = await catalogue.getCurrentDrop();
+  const [drop, bag] = await Promise.all([catalogue.getCurrentDrop(), getBag()]);
   const products = await catalogue.listProducts(drop ? { dropSlug: drop.slug } : {});
   const dropTitle = drop ? localName(locale, drop.titleEn, drop.titleAr) : t.hero.eyebrow;
 
   return (
     <>
-      <SiteHeader locale={locale} t={t.nav} path="" nav={storeNav(locale, t.store, drop)} />
+      <SiteHeader
+        locale={locale}
+        t={t.nav}
+        path=""
+        nav={storeNav(locale, t.store, drop)}
+        bag={bagLink(locale, t.bag, bag)}
+      />
       <main>
         <section className="linen-texture border-ink/5 border-y">
           <div className="mx-auto max-w-6xl space-y-6 px-4 py-16 sm:px-8 sm:py-24">

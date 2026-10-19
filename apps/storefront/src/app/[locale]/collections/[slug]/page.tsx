@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
-import { ProductGrid, localName, storeNav } from '@/components/store-parts';
+import { ProductGrid, bagLink, localName, storeNav } from '@/components/store-parts';
 import { fill, isLocale, type Locale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/get-dictionary';
+import { getBag } from '@/lib/cart';
 import { getCatalogue, isStoreOpen } from '@/lib/catalogue';
 
 type Collection = { title: string; filter: { gender?: 'men' | 'women'; dropSlug?: string } };
@@ -38,9 +39,10 @@ export default async function CollectionPage({
   if (!collection) notFound();
   const t = getDictionary(locale);
   const catalogue = getCatalogue();
-  const [products, drop] = await Promise.all([
+  const [products, drop, bag] = await Promise.all([
     catalogue.listProducts(collection.filter),
     catalogue.getCurrentDrop(),
+    getBag(),
   ]);
 
   return (
@@ -50,6 +52,7 @@ export default async function CollectionPage({
         t={t.nav}
         path={`/collections/${slug}`}
         nav={storeNav(locale, t.store, drop)}
+        bag={bagLink(locale, t.bag, bag)}
       />
       <main className="mx-auto max-w-6xl space-y-8 px-4 py-12 sm:px-8">
         <header className="space-y-2">

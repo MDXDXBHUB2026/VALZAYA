@@ -9,7 +9,7 @@ select set_config('vz.tap', '', true);
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select set_config('vz.tap', current_setting('vz.tap') || E'\n' || plan(79), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || plan(85), true);
 
 -- Fixtures (as the migration owner; RLS bypassed) -----------------------------------------
 insert into auth.users (id, instance_id, aud, role, email) values
@@ -158,6 +158,9 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is_empty($$ se
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   $$ select * from public.reserve_cart('ca000000-0000-4000-8000-0000000000a1') $$,
   '42501', null, 'customer cannot call reserve_cart (service role only)'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select public.cart_add_item('ca000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-0000000000a1') $$,
+  '42501', null, 'customer cannot call cart_add_item (server only)'), true);
 
 -- Anonymous ---------------------------------------------------------------------------------
 reset role;
@@ -217,6 +220,17 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   $$ select public.release_expired_reservations() $$,
   '42501', null, 'anon cannot call release_expired_reservations'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok($$ select public.cart_for_guest(repeat('a', 64), true) $$,
+  '42501', null, 'anon cannot call cart_for_guest (guest carts are server-side only)'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select public.cart_add_item('ca000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-0000000000a1') $$,
+  '42501', null, 'anon cannot call cart_add_item'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select public.cart_set_quantity('ca000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-0000000000a1', 0) $$,
+  '42501', null, 'anon cannot call cart_set_quantity'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select public.merge_carts('ca000000-0000-4000-8000-0000000000a1', 'ca000000-0000-4000-8000-0000000000a2') $$,
+  '42501', null, 'anon cannot call merge_carts'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   $$ select private.drop_units_used('d1000000-0000-4000-8000-000000000001') $$,
   '42501', null, 'anon cannot call the private drop accounting helpers'), true);
@@ -305,6 +319,8 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(public.hit_
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(public.hit_rate_limit('test:bucket', repeat('b', 64), 2, 600), false, 'rate limit: 3rd hit blocked'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is_empty($$ select * from public.reserve_cart('ca000000-0000-4000-8000-0000000000a1') $$,
   'reserve_cart: service role can call it (an empty cart holds nothing)'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(public.cart_for_guest(repeat('f', 64)), null,
+  'cart_for_guest: service role can call it (unknown token, no cart created)'), true);
 
 -- Back to owner role to verify the blocked write -------------------------------------------
 reset role;

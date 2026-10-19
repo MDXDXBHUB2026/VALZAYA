@@ -2,10 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
-import { Swatch, localName, price, storeNav } from '@/components/store-parts';
+import { Swatch, bagLink, localName, price, storeNav } from '@/components/store-parts';
 import { fill, isLocale, type Locale } from '@/i18n/config';
 import type { Dictionary } from '@/i18n/dictionaries/en';
 import { getDictionary } from '@/i18n/get-dictionary';
+import { addToBag, type BagError } from '../../bag/actions';
+import { getBag } from '@/lib/cart';
 import {
   getCatalogue,
   isStoreOpen,
@@ -88,9 +90,10 @@ export default async function ProductPage({
   if (!(await isStoreOpen())) redirect(`/${locale}`);
 
   const catalogue = getCatalogue();
-  const [product, drop] = await Promise.all([
+  const [product, drop, bag] = await Promise.all([
     catalogue.getProduct(slug),
     catalogue.getCurrentDrop(),
+    getBag(),
   ]);
   if (!product) notFound();
   const t = getDictionary(locale);
@@ -113,6 +116,9 @@ export default async function ProductPage({
     ? new Intl.DisplayNames([locale], { type: 'region' }).of(product.originCountry)
     : null;
   const hasSizeGuide = sizes.some((v) => v.size in SIZE_GUIDE);
+  const bagError = (['invalid', 'busy', 'unavailable', 'error'] as const).find(
+    (e): e is BagError => e === query.bag,
+  );
 
   return (
     <>
@@ -122,6 +128,7 @@ export default async function ProductPage({
         path={`/products/${slug}`}
         query={queryString}
         nav={storeNav(locale, s, drop)}
+        bag={bagLink(locale, t.bag, bag)}
       />
       <main className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-8 lg:grid-cols-2 lg:gap-16">
         <Swatch colour={colour} className="aspect-[4/5] rounded-sm" />
@@ -185,7 +192,32 @@ export default async function ProductPage({
             <p className="text-sm" role="status" data-testid="stock-badge">
               {selected ? badge(selected, locale, s.badge) : s.selectSize}
             </p>
-            <p className="text-muted text-sm">{s.bagSoon}</p>
+            <form action={addToBag} id="add" className="space-y-3 pt-2">
+              <input type="hidden" name="locale" value={locale} />
+              <input type="hidden" name="slug" value={slug} />
+              <input type="hidden" name="colour" value={colour} />
+              {selected && (
+                <>
+                  <input type="hidden" name="size" value={selected.size} />
+                  <input type="hidden" name="variantId" value={selected.id} />
+                </>
+              )}
+              {bagError && (
+                <p role="alert" className="text-error text-sm">
+                  {t.bag.errors[bagError]}
+                </p>
+              )}
+              {(!selected || selected.available) && (
+                <button
+                  type="submit"
+                  className="btn-primary w-full sm:w-auto"
+                  disabled={!selected}
+                  data-testid="add-to-bag"
+                >
+                  {selected ? t.bag.add : t.bag.addNeedsSize}
+                </button>
+              )}
+            </form>
           </section>
 
           {whatsapp && (

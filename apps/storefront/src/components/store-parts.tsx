@@ -35,6 +35,19 @@ export function localName(locale: Locale, en: string, ar: string | null): string
   return locale === 'ar' ? (ar ?? en) : en;
 }
 
+/** Header bag link; the count is left out when the bag cannot be read. */
+export function bagLink(
+  locale: Locale,
+  t: Dictionary['bag'],
+  bag: readonly { quantity: number }[] | null,
+): NavLink {
+  const count = bag?.reduce((n, l) => n + l.quantity, 0);
+  return {
+    href: `/${locale}/bag`,
+    label: count === undefined ? t.title : fill(t.link, { count: String(count) }),
+  };
+}
+
 export function storeNav(
   locale: Locale,
   t: Dictionary['store'],

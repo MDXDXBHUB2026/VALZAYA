@@ -4,6 +4,7 @@ import { handleWaitlistSignup, type WaitlistOutcome } from '@valzaya/core';
 import { headers } from 'next/headers';
 import { isLocale } from '@/i18n/config';
 import { getCatalogue } from '@/lib/catalogue';
+import { clientIp } from '@/lib/client-ip';
 import { getWaitlistBackend } from '@/lib/waitlist/backend';
 import { hmacHex } from '@/lib/waitlist/hash';
 
@@ -21,12 +22,6 @@ export type WaitlistFormState =
   | (Extract<WaitlistOutcome, { status: 'invalid' }> & { values: FormValues })
   | { status: 'rate_limited'; values: FormValues }
   | { status: 'error'; values: FormValues };
-
-/** First hop of X-Forwarded-For as set by the platform (Vercel overwrites client-sent values). */
-function clientIp(h: Headers): string {
-  const forwarded = h.get('x-forwarded-for')?.split(',')[0]?.trim();
-  return forwarded || h.get('x-real-ip')?.trim() || 'unknown';
-}
 
 function siteOrigin(h: Headers): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL;

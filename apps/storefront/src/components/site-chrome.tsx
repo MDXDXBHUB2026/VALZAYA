@@ -15,6 +15,8 @@ export function SiteHeader(props: {
   query?: string | undefined;
   /** Store navigation; shown only in store mode. */
   nav?: NavLink[] | undefined;
+  /** Bag link with its item count; shown only in store mode. */
+  bag?: NavLink | undefined;
 }) {
   const other: Locale = props.locale === 'en' ? 'ar' : 'en';
   const switchHref = `/${other}${props.path}${props.query ? `?${props.query}` : ''}`;
@@ -36,6 +38,15 @@ export function SiteHeader(props: {
               ))}
             </ul>
           </nav>
+        )}
+        {props.bag && (
+          <Link
+            href={props.bag.href}
+            className="text-sm underline-offset-4 hover:underline"
+            data-testid="bag-link"
+          >
+            {props.bag.label}
+          </Link>
         )}
         <Link
           href={switchHref}

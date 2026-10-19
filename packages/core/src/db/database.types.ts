@@ -1438,6 +1438,18 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      cart_add_item: {
+        Args: { p_cart_id: string; p_quantity?: number; p_variant_id: string };
+        Returns: number;
+      };
+      cart_for_guest: {
+        Args: { p_create?: boolean; p_token_hash: string };
+        Returns: string;
+      };
+      cart_set_quantity: {
+        Args: { p_cart_id: string; p_quantity: number; p_variant_id: string };
+        Returns: number;
+      };
       current_actor_type: { Args: never; Returns: string };
       drop_units_left: { Args: { p_drop_id: string }; Returns: number };
       hit_rate_limit: {
@@ -1471,6 +1483,7 @@ export type Database = {
           signup_id: string;
         }[];
       };
+      merge_carts: { Args: { p_from: string; p_into: string }; Returns: number };
       next_order_number: { Args: never; Returns: string };
       release_cart_reservations: {
         Args: { p_cart_id: string };
