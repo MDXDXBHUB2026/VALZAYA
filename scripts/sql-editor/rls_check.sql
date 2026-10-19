@@ -9,7 +9,7 @@ select set_config('vz.tap', '', true);
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select set_config('vz.tap', current_setting('vz.tap') || E'\n' || plan(65), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || plan(79), true);
 
 -- Fixtures (as the migration owner; RLS bypassed) -----------------------------------------
 insert into auth.users (id, instance_id, aud, role, email) values
@@ -63,6 +63,18 @@ insert into public.product_variants (id, product_id, sku, size, colour_code, col
   ('a1000000-0000-4000-8000-0000000000a4', 'a1000000-0000-4000-8000-000000000001', 'VZ-TSTACT-SAND-XS', 'XS', 'SAND', 'Sand', 'رملي', 10000, 'stock', null, false);
 insert into public.inventory_movements (variant_id, location, delta_on_hand, reason, source)
 values ('a1000000-0000-4000-8000-0000000000a1', 'warehouse', 3, 'initial_count', 'manual');
+
+-- Checkout holds: an open drop (cap 10) and a draft drop; alice's cart holds 2 units in the open one.
+insert into public.drops (id, number, slug, title_en, title_ar, opens_at, unit_cap, status) values
+  ('d1000000-0000-4000-8000-000000000001', 801, 'test-open-drop', 'Open', 'مفتوح', now() - interval '1 day', 10, 'open'),
+  ('d1000000-0000-4000-8000-000000000002', 802, 'test-draft-drop', 'Draft', null, now() + interval '9 days', 10, 'draft');
+insert into public.drop_items (drop_id, variant_id) values
+  ('d1000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-0000000000a3');
+insert into public.carts (id, customer_id) values
+  ('ca000000-0000-4000-8000-0000000000a1', 'a0000000-0000-4000-8000-00000000000a');
+insert into public.inventory_reservations (cart_id, variant_id, drop_id, quantity, expires_at) values
+  ('ca000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-0000000000a3',
+   'd1000000-0000-4000-8000-000000000001', 2, now() + interval '20 minutes');
 
 -- Customer A (alice) --------------------------------------------------------------------------
 set local role authenticated;
@@ -141,6 +153,11 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || ok((select boo
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   $$ select * from public.join_waitlist('alice@valzaya.test', null, true, false, 'en', 'landing', null, null) $$,
   '42501', null, 'customer cannot call join_waitlist (service role only)'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is_empty($$ select 1 from public.inventory_reservations $$,
+  'customer cannot read checkout holds, not even their own cart''s'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select * from public.reserve_cart('ca000000-0000-4000-8000-0000000000a1') $$,
+  '42501', null, 'customer cannot call reserve_cart (service role only)'), true);
 
 -- Anonymous ---------------------------------------------------------------------------------
 reset role;
@@ -190,6 +207,23 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   '42501', null, 'anon cannot call hit_rate_limit'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok($$ select 1 from private.rate_limits $$,
   '42501', null, 'anon cannot read rate limit counters'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is_empty($$ select 1 from public.inventory_reservations $$, 'anon cannot read checkout holds'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select * from public.reserve_cart('ca000000-0000-4000-8000-0000000000a1') $$,
+  '42501', null, 'anon cannot call reserve_cart'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select public.release_cart_reservations('ca000000-0000-4000-8000-0000000000a1') $$,
+  '42501', null, 'anon cannot call release_cart_reservations'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select public.release_expired_reservations() $$,
+  '42501', null, 'anon cannot call release_expired_reservations'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select private.drop_units_used('d1000000-0000-4000-8000-000000000001') $$,
+  '42501', null, 'anon cannot call the private drop accounting helpers'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(public.drop_units_left('d1000000-0000-4000-8000-000000000001'), 8,
+  'anon: drop_units_left is the public counter (cap 10 - 2 held)'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(public.drop_units_left('d1000000-0000-4000-8000-000000000002'), null,
+  'anon: drop_units_left reveals nothing about a draft drop'), true);
 
 -- Ops staff -----------------------------------------------------------------------------------
 reset role;
@@ -215,6 +249,16 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is((select cou
            where id in ('c0a00000-0000-4000-8000-0000000000a1', 'c0b00000-0000-4000-8000-0000000000b1',
                         'c0d00000-0000-4000-8000-0000000000d1')), 3,
   'ops can read all consents'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || isnt_empty($$ select 1 from public.inventory_reservations
+                     where cart_id = 'ca000000-0000-4000-8000-0000000000a1' $$,
+  'ops can read checkout holds'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ insert into public.inventory_reservations (cart_id, variant_id, quantity, expires_at)
+     values ('ca000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-0000000000a1', 1, now()) $$,
+  '42501', null, 'staff cannot write checkout holds directly (functions only)'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select * from public.reserve_cart('ca000000-0000-4000-8000-0000000000a1') $$,
+  '42501', null, 'staff cannot call reserve_cart (service role only)'), true);
 
 -- Service role: the waitlist write path used by the storefront server action -----------------
 reset role;
@@ -259,6 +303,8 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(public.hit_rate_limit('test:bucket', repeat('b', 64), 2, 600), true, 'rate limit: 1st hit allowed'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(public.hit_rate_limit('test:bucket', repeat('b', 64), 2, 600), true, 'rate limit: 2nd hit allowed'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(public.hit_rate_limit('test:bucket', repeat('b', 64), 2, 600), false, 'rate limit: 3rd hit blocked'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is_empty($$ select * from public.reserve_cart('ca000000-0000-4000-8000-0000000000a1') $$,
+  'reserve_cart: service role can call it (an empty cart holds nothing)'), true);
 
 -- Back to owner role to verify the blocked write -------------------------------------------
 reset role;
@@ -271,6 +317,8 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   null, null, 'consents are append-only, even for the table owner'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || hasnt_function('public', 'next_rma_number',
   'RMA number generator is not in the API-exposed public schema'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || ok((select relrowsecurity from pg_class where oid = 'public.inventory_reservations'::regclass),
+  'inventory_reservations has RLS enabled'), true);
 
 reset role;
 do $$
