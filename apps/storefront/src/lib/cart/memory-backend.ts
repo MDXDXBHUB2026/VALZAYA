@@ -9,12 +9,14 @@ import type { BagLine, CartBackend } from './types';
  */
 interface MemoryState {
   carts: Map<string, Map<string, number>>;
+  /** Token hashes whose cart was checked out (like carts.status = 'converted'). */
+  closed: Set<string>;
   hits: Map<string, number>;
 }
 
 const g = globalThis as typeof globalThis & { __valzayaCarts?: MemoryState };
 function state(): MemoryState {
-  g.__valzayaCarts ??= { carts: new Map(), hits: new Map() };
+  g.__valzayaCarts ??= { carts: new Map(), closed: new Set(), hits: new Map() };
   return g.__valzayaCarts;
 }
 
@@ -68,6 +70,7 @@ export function createMemoryCartBackend(): CartBackend {
     },
 
     async add(tokenHash, variantId, quantity) {
+      if (state().closed.has(tokenHash)) return 'closed';
       if (!(await findVariant(variantId))) return 'not_on_sale';
       const carts = state().carts;
       const cart = carts.get(tokenHash) ?? new Map<string, number>();
@@ -77,6 +80,7 @@ export function createMemoryCartBackend(): CartBackend {
     },
 
     async setQuantity(tokenHash, variantId, quantity) {
+      if (state().closed.has(tokenHash)) return 'closed';
       const cart = state().carts.get(tokenHash);
       if (!cart?.has(variantId)) return 'ok';
       if (quantity === 0) cart.delete(variantId);
@@ -92,4 +96,10 @@ export function createMemoryCartBackend(): CartBackend {
       return hits <= max;
     },
   };
+}
+
+/** Checkout in memory mode: the bag behind a token is closed, as create_order_from_cart does. */
+export function closeMemoryCart(tokenHash: string): void {
+  state().carts.delete(tokenHash);
+  state().closed.add(tokenHash);
 }
