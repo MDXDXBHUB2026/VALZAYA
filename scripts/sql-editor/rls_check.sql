@@ -9,7 +9,7 @@ select set_config('vz.tap', '', true);
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select set_config('vz.tap', current_setting('vz.tap') || E'\n' || plan(91), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || plan(98), true);
 
 -- Fixtures (as the migration owner; RLS bypassed) -----------------------------------------
 insert into auth.users (id, instance_id, aud, role, email) values
@@ -167,6 +167,10 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   $$ select public.apply_payment_event('card', 'evt_alice', 'payment.captured', '{}', 'ref', 'captured') $$,
   '42501', null, 'customer cannot mark a payment captured'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is_empty($$ select 1 from public.drop_access_codes $$, 'customer cannot read access codes'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select * from public.redeem_access_code('a0000000-0000-4000-8000-00000000000a', 'VZ-AAAAA-AAAAA') $$,
+  '42501', null, 'customer cannot call redeem_access_code directly (server action only, rate-limited)'), true);
 
 -- Anonymous ---------------------------------------------------------------------------------
 reset role;
@@ -249,6 +253,16 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok($$ select public.expire_unpaid_orders() $$,
   '42501', null, 'anon cannot call expire_unpaid_orders'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select * from public.issue_access_codes('d1000000-0000-4000-8000-000000000001', 1) $$,
+  '42501', null, 'anon cannot issue access codes'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select public.cart_for_customer('a0000000-0000-4000-8000-00000000000a', true) $$,
+  '42501', null, 'anon cannot call cart_for_customer'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select public.claim_guest_cart(repeat('a', 64), 'a0000000-0000-4000-8000-00000000000a') $$,
+  '42501', null, 'anon cannot claim a guest bag for someone'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is_empty($$ select 1 from public.drop_access_codes $$, 'anon cannot read access codes'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   $$ select private.drop_units_used('d1000000-0000-4000-8000-000000000001') $$,
   '42501', null, 'anon cannot call the private drop accounting helpers'), true);
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || is(public.drop_units_left('d1000000-0000-4000-8000-000000000001'), 8,
@@ -290,6 +304,9 @@ select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
 select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
   $$ select * from public.reserve_cart('ca000000-0000-4000-8000-0000000000a1') $$,
   '42501', null, 'staff cannot call reserve_cart (service role only)'), true);
+select set_config('vz.tap', current_setting('vz.tap') || E'\n' || throws_ok(
+  $$ select * from public.issue_access_codes('d1000000-0000-4000-8000-000000000001', 1) $$,
+  '42501', null, 'staff cannot issue codes through the API (owner, reviewed SQL only)'), true);
 
 -- Service role: the waitlist write path used by the storefront server action -----------------
 reset role;

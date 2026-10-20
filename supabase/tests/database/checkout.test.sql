@@ -15,6 +15,11 @@ insert into public.settings (key, value, is_public) values
   ('vat.rate_bp', '500', true)
 on conflict (key) do update set value = excluded.value;
 
+insert into auth.users (id, instance_id, aud, role, email) values
+  ('d5000000-0000-4000-8000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'a@valzaya.test'),
+  ('d5000000-0000-4000-8000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'b@valzaya.test'),
+  ('d5000000-0000-4000-8000-00000000000c', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'c@valzaya.test');
+
 insert into public.products (id, slug, style_code, gender, name_en, name_ar, description_en, description_ar,
                              fabric, care_en, care_ar, origin_country, status)
 values ('d7000000-0000-4000-8000-000000000001', 'test-checkout-product', 'TSTCHK', 'unisex', 'Checkout', 'دفع',
@@ -47,24 +52,24 @@ create temporary table addr as
 -- 1. Refusals ---------------------------------------------------------------------------------------
 select results_eq(
   $$ select reason from public.create_order_from_cart('d9000000-0000-4000-8000-000000000001', 'a@valzaya.test', null, 'en',
-       (select v from addr), 'standard') $$,
+       (select v from addr), 'standard', 'd5000000-0000-4000-8000-00000000000a') $$,
   $$ values ('empty_cart') $$, 'an empty bag cannot be ordered');
 insert into public.cart_items (cart_id, variant_id, quantity) values
   ('d9000000-0000-4000-8000-000000000001', 'd7000000-0000-4000-8000-0000000000a1', 2),
   ('d9000000-0000-4000-8000-000000000001', 'd7000000-0000-4000-8000-0000000000a2', 1);
 select results_eq(
   $$ select reason from public.create_order_from_cart('d9000000-0000-4000-8000-000000000001', 'a@valzaya.test', null, 'en',
-       (select v || '{"country_code":"GB","emirate":null}' from addr), 'standard') $$,
+       (select v || '{"country_code":"GB","emirate":null}' from addr), 'standard', 'd5000000-0000-4000-8000-00000000000a') $$,
   $$ values ('shipping_unavailable') $$, 'no rate for the country: refused before anything is held');
 select results_eq($$ select reserved from stock $$, $$ values (0) $$, 'nothing was held');
 select throws_ok(
   $$ select * from public.create_order_from_cart('d9000000-0000-4000-8000-000000000001', 'a@valzaya.test', null, 'en',
-       (select v from addr), 'drone') $$,
+       (select v from addr), 'drone', 'd5000000-0000-4000-8000-00000000000a') $$,
   '22023', null, 'an unknown delivery option is refused');
 
 -- 2. A bag becomes an order ---------------------------------------------------------------------------
 insert into o select 'a', r.* from public.create_order_from_cart('d9000000-0000-4000-8000-000000000001',
-  'a@valzaya.test', '+971500000001', 'en', (select v from addr), 'express') r;
+  'a@valzaya.test', '+971500000001', 'en', (select v from addr), 'express', 'd5000000-0000-4000-8000-00000000000a') r;
 select is((select reason from o where k = 'a'), 'ok', 'order created');
 select ok((select number ~ '^VZ-[0-9]{6,}$' from o where k = 'a'), 'it gets a VZ- order number');
 -- 2 x 105.00 + 200.00 + express 35.00 = 445.00
@@ -97,14 +102,14 @@ select results_eq($$ select reserved from stock $$, $$ values (2) $$, 'stock sta
 select is(public.drop_units_left('d8000000-0000-4000-8000-000000000001'), 9, 'the order line counts against the drop');
 select throws_ok(
   $$ select * from public.create_order_from_cart('d9000000-0000-4000-8000-000000000001', 'a@valzaya.test', null, 'en',
-       (select v from addr), 'standard') $$,
+       (select v from addr), 'standard', 'd5000000-0000-4000-8000-00000000000a') $$,
   'P0002', null, 'a converted bag cannot be ordered twice');
 
 insert into public.cart_items (cart_id, variant_id, quantity)
 values ('d9000000-0000-4000-8000-000000000002', 'd7000000-0000-4000-8000-0000000000a1', 2);
 select results_eq(
   $$ select order_id, reason from public.create_order_from_cart('d9000000-0000-4000-8000-000000000002', 'b@valzaya.test', null, 'en',
-       (select v from addr), 'standard') $$,
+       (select v from addr), 'standard', 'd5000000-0000-4000-8000-00000000000b') $$,
   $$ values (null::uuid, 'out_of_stock') $$, 'only 1 left: the second buyer is refused and gets no order');
 
 -- 3. Payment captured -----------------------------------------------------------------------------------
@@ -139,7 +144,7 @@ select throws_ok(
 insert into public.cart_items (cart_id, variant_id, quantity)
 values ('d9000000-0000-4000-8000-000000000003', 'd7000000-0000-4000-8000-0000000000a1', 1);
 insert into o select 'b', r.* from public.create_order_from_cart('d9000000-0000-4000-8000-000000000003',
-  'b@valzaya.test', null, 'ar', (select v from addr), 'standard') r;
+  'b@valzaya.test', null, 'ar', (select v from addr), 'standard', 'd5000000-0000-4000-8000-00000000000b') r;
 select is((select total from o where k = 'b'), 10500::bigint, 'standard delivery is free');
 select results_eq($$ select reserved from stock $$, $$ values (3) $$, 'all 3 units are now reserved');
 select isnt(public.record_payment_session((select id from o where k = 'b'), 'card', 'mock_sess_b'), null, 'session b');
@@ -153,7 +158,7 @@ select results_eq($$ select reserved from stock $$, $$ values (2) $$, 'and its u
 insert into public.cart_items (cart_id, variant_id, quantity)
 values ('d9000000-0000-4000-8000-000000000004', 'd7000000-0000-4000-8000-0000000000a2', 2);
 insert into o select 'c', r.* from public.create_order_from_cart('d9000000-0000-4000-8000-000000000004',
-  'c@valzaya.test', null, 'en', (select v from addr), 'standard') r;
+  'c@valzaya.test', null, 'en', (select v from addr), 'standard', 'd5000000-0000-4000-8000-00000000000c') r;
 select isnt(public.record_payment_session((select id from o where k = 'c'), 'card', 'mock_sess_c'), null, 'session c');
 select is(public.drop_units_left('d8000000-0000-4000-8000-000000000001'), 7, 'drop: 10 - 1 paid - 2 pending');
 update public.orders set placed_at = now() - interval '31 minutes' where id = (select id from o where k = 'c');
