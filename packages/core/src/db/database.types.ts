@@ -1438,6 +1438,17 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      apply_payment_event: {
+        Args: {
+          p_event_id: string;
+          p_event_type: string;
+          p_outcome: string;
+          p_payload: Json;
+          p_provider: Database['public']['Enums']['payment_provider'];
+          p_provider_ref: string;
+        };
+        Returns: string;
+      };
       cart_add_item: {
         Args: { p_cart_id: string; p_quantity?: number; p_variant_id: string };
         Returns: number;
@@ -1450,8 +1461,26 @@ export type Database = {
         Args: { p_cart_id: string; p_quantity: number; p_variant_id: string };
         Returns: number;
       };
+      create_order_from_cart: {
+        Args: {
+          p_cart_id: string;
+          p_customer_id?: string;
+          p_delivery: string;
+          p_email: string;
+          p_locale: string;
+          p_phone: string;
+          p_shipping_address: Json;
+        };
+        Returns: {
+          order_id: string;
+          order_number: string;
+          reason: string;
+          total_fils: number;
+        }[];
+      };
       current_actor_type: { Args: never; Returns: string };
       drop_units_left: { Args: { p_drop_id: string }; Returns: number };
+      expire_unpaid_orders: { Args: { p_minutes?: number }; Returns: number };
       hit_rate_limit: {
         Args: {
           p_bucket: string;
@@ -1485,6 +1514,14 @@ export type Database = {
       };
       merge_carts: { Args: { p_from: string; p_into: string }; Returns: number };
       next_order_number: { Args: never; Returns: string };
+      record_payment_session: {
+        Args: {
+          p_order_id: string;
+          p_provider: Database['public']['Enums']['payment_provider'];
+          p_provider_ref: string;
+        };
+        Returns: string;
+      };
       release_cart_reservations: {
         Args: { p_cart_id: string };
         Returns: number;

@@ -10,6 +10,7 @@
 #   stock     20 buyers x 1 unit, 3 in the warehouse        -> exactly 3 holds, reserved = 3
 #   drop cap  20 buyers x 1 pre-order unit, drop cap 5       -> exactly 5 holds
 #   deadlock  20 buyers x 2 variants, added in both orders   -> no deadlock errors
+#   checkout  20 buyers x 1 unit place orders, 3 in stock      -> exactly 3 orders
 set -euo pipefail
 
 PSQL=${PSQL:-psql}
@@ -41,34 +42,44 @@ insert into public.drops (id, number, slug, title_en, title_ar, opens_at, unit_c
 values ($(id drop), (select coalesce(max(number), 0) + 1 from public.drops), 'race-$RUN', 'Race', 'س',
         now() - interval '1 day', 5, 'open');
 insert into public.drop_items (drop_id, variant_id) values ($(id drop), $(id pre));
+insert into public.settings (key, value, is_public)
+values ('shipping.rates', '{"AE": {"standard_fils": 0, "express_fils": 3500}}', true)
+on conflict (key) do nothing;
 SQL
 
-# Each buyer i gets a cart per scenario: stock-i, pre-i, mix-i.
+# Each buyer i gets a cart per scenario: stock-i, pre-i, mix-i, order-i.
 q <<SQL
 insert into public.carts (id, guest_token_hash)
 select md5('race-$RUN-' || s || '-' || i)::uuid, encode(sha256(convert_to('race-$RUN-' || s || '-' || i, 'UTF8')), 'hex')
-  from generate_series(1, $BUYERS) i, unnest(array['stock', 'pre', 'mix']) s;
+  from generate_series(1, $BUYERS) i, unnest(array['stock', 'pre', 'mix', 'order']) s;
 insert into public.cart_items (cart_id, variant_id, quantity)
 select md5('race-$RUN-stock-' || i)::uuid, $(id stock), 1 from generate_series(1, $BUYERS) i;
 insert into public.cart_items (cart_id, variant_id, quantity)
 select md5('race-$RUN-pre-' || i)::uuid, $(id pre), 1 from generate_series(1, $BUYERS) i;
+insert into public.cart_items (cart_id, variant_id, quantity)
+select md5('race-$RUN-order-' || i)::uuid, $(id stock), 1 from generate_series(1, $BUYERS) i;
 -- Mixed carts hold two stock variants; odd buyers add them in the opposite order.
 insert into public.cart_items (cart_id, variant_id, quantity, added_at)
 select md5('race-$RUN-mix-' || i)::uuid, v, 1, now() + (case when (i % 2 = 0) = (v = $(id big)) then 0 else 1 end) * interval '1 second'
   from generate_series(1, $BUYERS) i, unnest(array[$(id big), $(id stock)]) v;
 SQL
 
-race() { # $1 = scenario; prints one line per buyer: t / f / ERROR
-  local scenario=$1 out
+RESERVE="select coalesce(bool_and(reserved), false) from public.reserve_cart(CART)"
+ORDER="select reason = 'ok' from public.create_order_from_cart(CART, 'race@valzaya.test', null, 'en',
+  '{\"country_code\": \"AE\", \"city\": \"Dubai\"}', 'standard')"
+
+race() { # $1 = scenario, $2 = SQL with CART for the buyer's cart; prints t / f / ERROR per buyer
+  local scenario=$1 sql=${2:-$RESERVE} out
   out=$(mktemp -d)
   # A held advisory lock is the starting gun: every buyer blocks on it, then all go at once.
   $PSQL -X -q -At -c "select pg_advisory_lock(4242); select pg_sleep(2); select pg_advisory_unlock(4242);" >/dev/null &
   local gun=$!
   sleep 0.5
   for i in $(seq 1 "$BUYERS"); do
+    local cart="md5('race-$RUN-$scenario-$i')::uuid"
     ( $PSQL -X -q -At -v ON_ERROR_STOP=1 \
         -c "select pg_advisory_lock_shared(4242); select pg_advisory_unlock_shared(4242);" \
-        -c "select coalesce(bool_and(reserved), false) from public.reserve_cart(md5('race-$RUN-$scenario-$i')::uuid)" \
+        -c "${sql//CART/$cart}" \
         >"$out/$i" 2>&1 || echo ERROR >>"$out/$i" ) &
   done
   wait
@@ -100,5 +111,13 @@ q -c "select sum(public.release_cart_reservations(md5('race-$RUN-stock-' || i)::
 mix=$(race mix)
 check "deadlock: no buyer errored (no deadlocks)" "$(grep -c ERROR <<<"$mix" || true)" 0
 check "deadlock: exactly 3 mixed carts hold both variants" "$(grep -c '^t$' <<<"$mix" || true)" 3
+
+# Free the stock again; now buyers race all the way to an order.
+q -c "select sum(public.release_cart_reservations(md5('race-$RUN-mix-' || i)::uuid)) from generate_series(1, $BUYERS) i" >/dev/null
+orders=$(race order "$ORDER")
+check "checkout: exactly 3 of $BUYERS buyers get an order" "$(grep -c '^t$' <<<"$orders" || true)" 3
+check "checkout: no buyer errored" "$(grep -c ERROR <<<"$orders" || true)" 0
+check "checkout: 3 order lines for the 3 units, reserved = 3" \
+  "$(q -c "select (select sum(quantity) from public.order_items where variant_id = $(id stock)) || '/' || reserved from public.inventory_levels where variant_id = $(id stock)")" "3/3"
 
 exit $fail

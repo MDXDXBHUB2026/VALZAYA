@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(85);
+select plan(91);
 
 -- Fixtures (as the migration owner; RLS bypassed) -----------------------------------------
 insert into auth.users (id, instance_id, aud, role, email) values
@@ -156,6 +156,12 @@ select throws_ok(
 select throws_ok(
   $$ select public.cart_add_item('ca000000-0000-4000-8000-0000000000a1', 'a1000000-0000-4000-8000-0000000000a1') $$,
   '42501', null, 'customer cannot call cart_add_item (server only)');
+select throws_ok(
+  $$ select * from public.create_order_from_cart('ca000000-0000-4000-8000-0000000000a1', 'alice@valzaya.test', null, 'en', '{}', 'standard') $$,
+  '42501', null, 'customer cannot call create_order_from_cart (server only: prices never from the client)');
+select throws_ok(
+  $$ select public.apply_payment_event('card', 'evt_alice', 'payment.captured', '{}', 'ref', 'captured') $$,
+  '42501', null, 'customer cannot mark a payment captured');
 
 -- Anonymous ---------------------------------------------------------------------------------
 reset role;
@@ -226,6 +232,17 @@ select throws_ok(
 select throws_ok(
   $$ select public.merge_carts('ca000000-0000-4000-8000-0000000000a1', 'ca000000-0000-4000-8000-0000000000a2') $$,
   '42501', null, 'anon cannot call merge_carts');
+select throws_ok(
+  $$ select * from public.create_order_from_cart('ca000000-0000-4000-8000-0000000000a1', 'anon@valzaya.test', null, 'en', '{}', 'standard') $$,
+  '42501', null, 'anon cannot call create_order_from_cart');
+select throws_ok(
+  $$ select public.apply_payment_event('card', 'evt_anon', 'payment.captured', '{}', 'ref', 'captured') $$,
+  '42501', null, 'anon cannot call apply_payment_event (webhooks are verified server-side first)');
+select throws_ok(
+  $$ select public.record_payment_session('0a000000-0000-4000-8000-0000000000a1', 'card', 'ref') $$,
+  '42501', null, 'anon cannot call record_payment_session');
+select throws_ok($$ select public.expire_unpaid_orders() $$,
+  '42501', null, 'anon cannot call expire_unpaid_orders');
 select throws_ok(
   $$ select private.drop_units_used('d1000000-0000-4000-8000-000000000001') $$,
   '42501', null, 'anon cannot call the private drop accounting helpers');
