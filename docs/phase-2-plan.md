@@ -1,6 +1,6 @@
 # Phase 2 plan — storefront (`apps/storefront`)
 
-Status: **Step A accepted and merged (PR #2). Step B in progress: B1 catalogue (PR #3) and B2 reservations + drop accounting (PR #4) merged; B3 bag built — awaiting merge.** B4–B6 not started.
+Status: **Step A accepted and merged (PR #2). Step B in progress: B1 (PR #3), B2 (PR #4) and B3 (PR #5) merged; B4 split into B4a (database checkout + payment adapter, built — awaiting merge) and B4b (checkout UI + mock hosted page + webhook route).** B5–B6 not started.
 Rule: Step A ships alone. Step B starts only after Step A is accepted.
 
 ## 0. Pre-work (this PR)
@@ -50,6 +50,27 @@ Step A accepted 2026-10-19. Built in PR-sized slices, each with its own tests, t
 | **B4 Checkout (mock payment)** | Contact, address (UAE emirate picker + international), delivery option from `settings.shipping.rates`, server-recomputed totals → reservation → order `pending_payment` → **mock** payment session. | `create_order_from_cart()` (one transaction, prices from DB, never from the client). |
 | **B5 Account + early access** | Magic-link login (Supabase Auth), order history, addresses, consents; early-access window: only waitlisted emails can buy. | Auth redirect URLs on valzaya-dev. |
 | **B6 SEO + acceptance** | Metadata, Open Graph, sitemap, hreflang; Playwright browse → cart → mock checkout → `pending_payment`; RTL screenshots; Lighthouse home + product. | — |
+
+**B4a as built** (reference for B4b):
+- `create_order_from_cart(cart, email, phone, locale, address, delivery)` runs in one transaction:
+  - It holds the bag for 30 minutes (`reserve_cart`), then creates the order as `pending_payment`.
+  - Prices come from the database; VAT is split per line and on shipping.
+  - Shipping comes from `settings.shipping.rates`. Countries without a rate are refused, which today means everywhere outside the UAE.
+  - The cart is converted, and its holds become the order's.
+  - It returns `reason`: `ok`, `empty_cart`, `shipping_unavailable`, or a `reserve_cart` reason.
+- `record_payment_session(order, provider, ref)` takes the amount from the order total.
+- `apply_payment_event(...)`:
+  - It stores the raw event in `webhook_events` first, so a redelivery is a no-op (rule 4).
+  - A capture marks the order `paid` through the state machine, which writes `order_events` and `audit_log`.
+  - A failure or expiry cancels the order and releases its stock.
+  - A capture that arrives after the order was cancelled is recorded and flagged "refund needed".
+- `expire_unpaid_orders(minutes = 30)`: nothing schedules it yet. B4b runs it on demand.
+- Core:
+  - The `PaymentProvider` interface: createSession, handleWebhook, capture, refund, getStatus.
+  - The mock provider signs webhooks as `x-mock-signature: t=…,v1=HMAC-SHA256`, with a 5-minute window.
+  - `checkoutSchema`: UAE address, required phone, delivery option.
+  - `checkoutTotals()` matches the database to the fils (tested on the same case).
+- All service role only. The race test covers 20 parallel checkouts for 3 units: exactly 3 orders.
 
 **B3 as built** (reference for B4/B5):
 - The guest bag is the httpOnly `vz_bag` cookie: a random 256-bit token. The database stores only its SHA-256 (`carts.guest_token_hash`).
