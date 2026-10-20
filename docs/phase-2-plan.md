@@ -1,6 +1,6 @@
 # Phase 2 plan — storefront (`apps/storefront`)
 
-Status: **Step A accepted and merged (PR #2). Step B in progress: B1 (PR #3), B2 (PR #4) and B3 (PR #5) merged; B4 split into B4a (database checkout + payment adapter, built — awaiting merge) and B4b (checkout UI + mock hosted page + webhook route).** B5–B6 not started.
+Status: **Step A accepted and merged (PR #2). Step B in progress: B1 (PR #3), B2 (PR #4), B3 (PR #5) and B4a (PR #6) merged; B4b checkout UI built — awaiting merge.** B5–B6 not started.
 Rule: Step A ships alone. Step B starts only after Step A is accepted.
 
 ## 0. Pre-work (this PR)
@@ -50,6 +50,19 @@ Step A accepted 2026-10-19. Built in PR-sized slices, each with its own tests, t
 | **B4 Checkout (mock payment)** | Contact, address (UAE emirate picker + international), delivery option from `settings.shipping.rates`, server-recomputed totals → reservation → order `pending_payment` → **mock** payment session. | `create_order_from_cart()` (one transaction, prices from DB, never from the client). |
 | **B5 Account + early access** | Magic-link login (Supabase Auth), order history, addresses, consents; early-access window: only waitlisted emails can buy. | Auth redirect URLs on valzaya-dev. |
 | **B6 SEO + acceptance** | Metadata, Open Graph, sitemap, hreflang; Playwright browse → cart → mock checkout → `pending_payment`; RTL screenshots; Lighthouse home + product. | — |
+
+**B4b as built:**
+- **`/[locale]/checkout`:**
+  - Contact details and a UAE address (emirate picker). The courier phone is required.
+  - Delivery is standard or express, from `settings.shipping.rates`. The summary updates live, and the server recomputes everything.
+  - Placing the order frees stock from expired unpaid orders, then calls `create_order_from_cart`, opens a payment session and redirects to the provider.
+  - Rate-limited to 10 orders per 10 minutes per IP.
+- **`/[locale]/checkout/mock-pay/[ref]`:**
+  - The test-mode stand-in for a provider-hosted page, with no card fields. It returns 404 on a production deployment.
+  - Pay / Decline sends a **signed** event through the same webhook path as `/api/webhooks/payments/mock`. On previews this goes in-process, because Vercel's deployment protection would block an HTTP self-call.
+- **`/api/webhooks/payments/mock`:** a bad signature returns 401 and is not stored. A good one is stored, then processed idempotently. Errors return 500 so the provider retries.
+- **`/[locale]/order/[number]?k=…`:** the guest order page, reachable only with the HMAC-signed link. It shows paid, pending or cancelled, the lines, the totals with VAT, the delivery address, and the pre-order ship date.
+- Everything works without JavaScript and is checked with axe. Arabic copy is a draft.
 
 **B4a as built** (reference for B4b):
 - `create_order_from_cart(cart, email, phone, locale, address, delivery)` runs in one transaction:

@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import { isLocale } from '@/i18n/config';
 import { getCatalogue } from '@/lib/catalogue';
 import { clientIp } from '@/lib/client-ip';
+import { siteOrigin } from '@/lib/site-origin';
 import { getWaitlistBackend } from '@/lib/waitlist/backend';
 import { hmacHex } from '@/lib/waitlist/hash';
 
@@ -22,14 +23,6 @@ export type WaitlistFormState =
   | (Extract<WaitlistOutcome, { status: 'invalid' }> & { values: FormValues })
   | { status: 'rate_limited'; values: FormValues }
   | { status: 'error'; values: FormValues };
-
-function siteOrigin(h: Headers): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
-  if (configured) return configured.replace(/\/$/, '');
-  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
-  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
-  return `${proto}://${host}`;
-}
 
 export async function joinWaitlist(
   _prev: WaitlistFormState,

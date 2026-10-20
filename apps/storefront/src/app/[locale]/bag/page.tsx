@@ -140,7 +140,15 @@ export default async function BagPage({ params, searchParams }: PageProps<'/[loc
                 {fill(b.vatLine, { vat: price(totals!.vatFils, locale) })}
               </p>
               <p className="text-muted text-sm">{b.deliveryNote}</p>
-              <p className="border-ink/10 border-t pt-3 text-sm">{b.checkoutSoon}</p>
+              {bag.every((l) => l.available) && (
+                <Link
+                  href={`/${locale}/checkout`}
+                  className="btn-primary inline-flex w-full"
+                  data-testid="checkout-link"
+                >
+                  {b.checkout}
+                </Link>
+              )}
             </aside>
           </div>
         )}
