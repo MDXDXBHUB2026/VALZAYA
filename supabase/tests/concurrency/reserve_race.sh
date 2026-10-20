@@ -42,6 +42,8 @@ insert into public.drops (id, number, slug, title_en, title_ar, opens_at, unit_c
 values ($(id drop), (select coalesce(max(number), 0) + 1 from public.drops), 'race-$RUN', 'Race', 'س',
         now() - interval '1 day', 5, 'open');
 insert into public.drop_items (drop_id, variant_id) values ($(id drop), $(id pre));
+insert into auth.users (id, instance_id, aud, role, email)
+values ($(id customer), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'race-$RUN@valzaya.test');
 insert into public.settings (key, value, is_public)
 values ('shipping.rates', '{"AE": {"standard_fils": 0, "express_fils": 3500}}', true)
 on conflict (key) do nothing;
@@ -66,7 +68,7 @@ SQL
 
 RESERVE="select coalesce(bool_and(reserved), false) from public.reserve_cart(CART)"
 ORDER="select reason = 'ok' from public.create_order_from_cart(CART, 'race@valzaya.test', null, 'en',
-  '{\"country_code\": \"AE\", \"city\": \"Dubai\"}', 'standard')"
+  '{\"country_code\": \"AE\", \"city\": \"Dubai\"}', 'standard', $(id customer))"
 
 race() { # $1 = scenario, $2 = SQL with CART for the buyer's cart; prints t / f / ERROR per buyer
   local scenario=$1 sql=${2:-$RESERVE} out

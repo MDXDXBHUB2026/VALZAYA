@@ -181,6 +181,9 @@ const en = {
     },
     refused: {
       empty_cart: 'Your bag is empty.',
+      login_required: 'Please sign in to place your order. Your bag is kept.',
+      early_access_only:
+        'This drop is in early access: only waitlist members and access-code holders can order now.',
       shipping_unavailable: 'We cannot deliver to this address yet.',
       not_on_sale: 'Something in your bag is not on sale right now. Review your bag.',
       out_of_stock: 'Something in your bag just sold out. Review your bag.',

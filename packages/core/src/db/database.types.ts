@@ -284,6 +284,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      drop_access_codes: {
+        Row: {
+          code_hash: string;
+          created_at: string;
+          drop_id: string;
+          id: string;
+          note: string | null;
+          redeemed_at: string | null;
+          redeemed_by: string | null;
+        };
+        Insert: {
+          code_hash: string;
+          created_at?: string;
+          drop_id: string;
+          id?: string;
+          note?: string | null;
+          redeemed_at?: string | null;
+          redeemed_by?: string | null;
+        };
+        Update: {
+          code_hash?: string;
+          created_at?: string;
+          drop_id?: string;
+          id?: string;
+          note?: string | null;
+          redeemed_at?: string | null;
+          redeemed_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'drop_access_codes_drop_id_fkey';
+            columns: ['drop_id'];
+            isOneToOne: false;
+            referencedRelation: 'drops';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'drop_access_codes_redeemed_by_fkey';
+            columns: ['redeemed_by'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       drop_items: {
         Row: {
           created_at: string;
@@ -1453,6 +1498,10 @@ export type Database = {
         Args: { p_cart_id: string; p_quantity?: number; p_variant_id: string };
         Returns: number;
       };
+      cart_for_customer: {
+        Args: { p_create?: boolean; p_customer_id: string };
+        Returns: string;
+      };
       cart_for_guest: {
         Args: { p_create?: boolean; p_token_hash: string };
         Returns: string;
@@ -1460,6 +1509,10 @@ export type Database = {
       cart_set_quantity: {
         Args: { p_cart_id: string; p_quantity: number; p_variant_id: string };
         Returns: number;
+      };
+      claim_guest_cart: {
+        Args: { p_customer_id: string; p_token_hash: string };
+        Returns: string;
       };
       create_order_from_cart: {
         Args: {
@@ -1494,6 +1547,12 @@ export type Database = {
         Args: { required_role?: Database['public']['Enums']['staff_role'] };
         Returns: boolean;
       };
+      issue_access_codes: {
+        Args: { p_count: number; p_drop_id: string; p_note?: string };
+        Returns: {
+          code: string;
+        }[];
+      };
       join_waitlist: {
         Args: {
           p_drop_id: string;
@@ -1521,6 +1580,13 @@ export type Database = {
           p_provider_ref: string;
         };
         Returns: string;
+      };
+      redeem_access_code: {
+        Args: { p_code: string; p_customer_id: string };
+        Returns: {
+          drop_id: string;
+          reason: string;
+        }[];
       };
       release_cart_reservations: {
         Args: { p_cart_id: string };
